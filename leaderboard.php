@@ -130,39 +130,65 @@ include 'quizauth.php';
         </tbody>
     </table>
 </div>
-
 <script>
-    // Dummy data for now
-    const leaderboardData = [
-        { username: "Johnathan Doe", time: "02:15", correct: 8 },
-        { username: "Ayesha Khan", time: "03:20", correct: 7 },
-        { username: "Ravi Sharma", time: "01:50", correct: 9 },
-        { username: "Elizabeth Alexandra Mary Windsor", time: "02:45", correct: 6 },
-    ];
+document.addEventListener("DOMContentLoaded", () => {
+    // Yesterday’s date ber korbo
+    const today = new Date();
+    today.setDate(today.getDate() - 1);
+    const yesterday = today.toISOString().split("T")[0];
 
-    function loadLeaderboard() {
-        const dateValue = document.getElementById("leaderboardDate").value;
-        const tbody = document.querySelector("#leaderboardTable tbody");
+    // Input e set kore dibo
+    const dateInput = document.getElementById("leaderboardDate");
+    dateInput.value = yesterday;
 
-        if (!dateValue) {
-            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color: #ccc;">📅 Please select a date to view the leaderboard</td></tr>`;
+    // Auto load yesterday’s leaderboard
+    loadLeaderboard();
+});
+
+async function loadLeaderboard() {
+    const dateValue = document.getElementById("leaderboardDate").value;
+    const tbody = document.querySelector("#leaderboardTable tbody");
+
+    if (!dateValue) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color: #ccc;">📅 Please select a date to view the leaderboard</td></tr>`;
+        return;
+    }
+
+    // Check if selected date is today → leaderboard show kora jabe na
+    const today = new Date().toISOString().split("T")[0];
+    if (dateValue === today) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color: orange;">⏳ Today's leaderboard will be available after midnight</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color: #ccc;">⏳ Loading...</td></tr>`;
+
+    try {
+        const res = await fetch(`api/get-leaderboard.php?date=${dateValue}`);
+        const data = await res.json();
+
+        if (data.status !== "success" || data.leaderboard.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color: #ccc;">❌ No leaderboard found for this date</td></tr>`;
             return;
         }
 
         tbody.innerHTML = "";
-
-        leaderboardData.forEach((player, index) => {
+        data.leaderboard.forEach((player, index) => {
             const tr = document.createElement("tr");
             tr.innerHTML = `
                 <td data-label="Rank">#${index + 1}</td>
-                <td data-label="Username">${player.username}</td>
-                <td data-label="Submission Time">${player.time}</td>
-                <td data-label="Correct Answers">${player.correct}</td>
+                <td data-label="Username">${player.first_name} ${player.last_name}</td>
+                <td data-label="Submission Time">${player.time_taken} sec</td>
+                <td data-label="Correct Answers">${player.correct_answers}/${player.total_questions}</td>
             `;
             tbody.appendChild(tr);
         });
-    }
-</script>
 
+    } catch (err) {
+        console.error(err);
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color: red;">⚠️ Failed to load leaderboard</td></tr>`;
+    }
+}
+</script>
 </body>
 </html>

@@ -4,7 +4,7 @@ header('Content-Type: application/json');
 require 'db.php'; 
 
 try {
-    $stmt = $pdo->prepare("SELECT id, name, email, created_at FROM users ORDER BY id ASC");
+    $stmt = $pdo->prepare("SELECT id, name, email, phone, created_at FROM users ORDER BY id ASC");
     $stmt->execute();
     $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 

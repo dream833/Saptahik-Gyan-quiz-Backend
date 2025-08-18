@@ -8,18 +8,44 @@ if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== tru
     exit;
 }
 
-// ✅ These should be outside the `if` block:
+// ✅ DB connect
 require 'api/db.php'; 
 
-// Get total users
-$stmt = $pdo->query("SELECT COUNT(*) AS total FROM users");
-$row = $stmt->fetch();
-$totalUsers = $row['total'];
-// Get total questions
-$stmt = $pdo->query("SELECT COUNT(*) AS total FROM questions");
-$row = $stmt->fetch();
-$totalQuestions = $row['total'];
+// ---- Stats ----
 
+// Total users
+$stmt = $pdo->query("SELECT COUNT(*) AS total FROM users");
+$row = $stmt->fetch(PDO::FETCH_ASSOC);
+$totalUsers = (int)$row['total'];
+
+// Total quizzes (dynamic)
+$stmt = $pdo->query("SELECT COUNT(*) AS total FROM quizzes");
+$row = $stmt->fetch(PDO::FETCH_ASSOC);
+$totalQuizzes = (int)$row['total'];
+
+// Total questions
+$stmt = $pdo->query("SELECT COUNT(*) AS total FROM questions");
+$row = $stmt->fetch(PDO::FETCH_ASSOC);
+$totalQuestions = (int)$row['total'];
+
+// Top Scorer (highest score; if tie -> earliest attempted_at)
+$topScorerName = "Available after quiz attempts";
+$topScorerDetail = "";
+
+$topStmt = $pdo->query("
+    SELECT u.name, qa.score, qa.attempted_at
+    FROM quiz_attempts qa
+    INNER JOIN users u ON u.id = qa.user_id
+    ORDER BY qa.score DESC, qa.attempted_at ASC
+    LIMIT 1
+");
+$top = $topStmt->fetch(PDO::FETCH_ASSOC);
+if ($top) {
+    // If your score is already a percentage keep as-is; otherwise show as raw score.
+    // Here we show raw score to avoid wrong assumptions.
+    $topScorerName = $top['name'];
+    $topScorerDetail = 'Score: ' . $top['score'];
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -30,221 +56,35 @@ $totalQuestions = $row['total'];
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto&display=swap">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: 'Roboto', sans-serif;
-    }
-
-    body {
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-      background: #f0f2f5;
-    }
-
-    .container {
-      display: flex;
-      flex: 1;
-      flex-direction: row;
-    }
-
-    .sidebar {
-      width: 230px;
-      background: #1a237e;
-      color: white;
-      padding: 20px;
-      transition: transform 0.3s ease;
-      z-index: 1000;
-    }
-
-    .sidebar h2 {
-      text-align: center;
-      margin-bottom: 40px;
-      font-size: 22px;
-      font-weight: bold;
-    }
-
-    .sidebar ul {
-      list-style: none;
-    }
-
-    .sidebar ul li {
-      margin: 18px 0;
-    }
-
-    .sidebar ul li a {
-      display: flex;
-      align-items: center;
-      text-decoration: none;
-      color: white;
-      font-size: 16px;
-      padding: 10px;
-      border-radius: 6px;
-      transition: 0.3s;
-      cursor: pointer;
-    }
-
-    .sidebar ul li a i {
-      margin-right: 12px;
-      font-size: 18px;
-    }
-
-    .sidebar ul li a:hover {
-      background: rgba(255, 255, 255, 0.1);
-    }
-
-    .sidebar ul .submenu {
-      margin-left: 30px;
-      display: none;
-    }
-
-    .sidebar ul li.active .submenu {
-      display: block;
-    }
-
-    .sidebar ul li.has-sub > a::after {
-      content: "\f107";
-      font-family: 'Font Awesome 6 Free';
-      font-weight: 900;
-      margin-left: auto;
-    }
-
-    .sidebar ul li.active > a::after {
-      content: "\f106";
-    }
-
-    .sidebar ul li .submenu li a {
-      font-size: 14px;
-      padding-left: 35px;
-      color: #cfd8dc;
-    }
-
-    .sidebar ul li .submenu li a:hover {
-      background: rgba(255, 255, 255, 0.15);
-    }
-
-    .main-content {
-      flex: 1;
-      padding: 30px;
-    }
-
-    .topbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 30px;
-      padding: 10px 20px;
-      background: #1a237e;
-      color: white;
-    }
-
-    .topbar h1 {
-      font-size: 24px;
-    }
-
-    .toggle-btn {
-      font-size: 22px;
-      background: #1a237e;
-      color: white;
-      border: none;
-      padding: 10px 15px;
-      cursor: pointer;
-      border-radius: 4px;
-      display: none;
-    }
-
-    .logout-btn {
-      font-size: 16px;
-      background: #e53935;
-      color: white;
-      border: none;
-      padding: 8px 16px;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: background 0.3s ease;
-    }
-
-    .logout-btn:hover {
-      background: #c62828;
-    }
-
-    .cards {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 20px;
-      margin-bottom: 40px;
-    }
-
-    .card {
-      background: white;
-      padding: 25px;
-      border-radius: 10px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
-    }
-
-    .card:hover {
-      transform: translateY(-6px);
-      box-shadow: 0 6px 18px rgba(0,0,0,0.1);
-    }
-
-    .card h3 {
-      font-size: 20px;
-      margin-bottom: 12px;
-      color: #1a237e;
-    }
-
-    .card p {
-      font-size: 17px;
-      color: #444;
-    }
-
-    #overlay {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      height: 100%;
-      width: 100%;
-      background: rgba(0,0,0,0.4);
-      z-index: 900;
-    }
-
-    @media (max-width: 768px) {
-      .toggle-btn {
-        display: inline-block;
-      }
-
-      .container {
-        flex-direction: column;
-      }
-
-      .sidebar {
-        position: fixed;
-        left: 0;
-        top: 0;
-        height: 100%;
-        transform: translateX(-100%);
-      }
-
-      .sidebar.show {
-        transform: translateX(0);
-      }
-
-      .main-content {
-        padding: 20px;
-      }
-
-      .topbar h1 {
-        font-size: 20px;
-      }
-
-      .cards {
-        grid-template-columns: 1fr;
-      }
-    }
+    * {margin: 0; padding: 0; box-sizing: border-box; font-family: 'Roboto', sans-serif;}
+    body {display: flex; flex-direction: column; min-height: 100vh; background: #f0f2f5;}
+    .container {display: flex; flex: 1; flex-direction: row;}
+    .sidebar {width: 230px; background: #1a237e; color: white; padding: 20px; transition: transform 0.3s ease; z-index: 1000;}
+    .sidebar h2 {text-align: center; margin-bottom: 40px; font-size: 22px; font-weight: bold;}
+    .sidebar ul {list-style: none;}
+    .sidebar ul li {margin: 18px 0;}
+    .sidebar ul li a {display: flex; align-items: center; text-decoration: none; color: white; font-size: 16px; padding: 10px; border-radius: 6px; transition: 0.3s; cursor: pointer;}
+    .sidebar ul li a i {margin-right: 12px; font-size: 18px;}
+    .sidebar ul li a:hover {background: rgba(255, 255, 255, 0.1);}
+    .sidebar ul .submenu {margin-left: 30px; display: none;}
+    .sidebar ul li.active .submenu {display: block;}
+    .sidebar ul li.has-sub > a::after {content: "\f107"; font-family: 'Font Awesome 6 Free'; font-weight: 900; margin-left: auto;}
+    .sidebar ul li.active > a::after {content: "\f106";}
+    .sidebar ul li .submenu li a {font-size: 14px; padding-left: 35px; color: #cfd8dc;}
+    .sidebar ul li .submenu li a:hover {background: rgba(255, 255, 255, 0.15);}
+    .main-content {flex: 1; padding: 30px;}
+    .topbar {display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding: 10px 20px; background: #1a237e; color: white;}
+    .topbar h1 {font-size: 24px;}
+    .toggle-btn {font-size: 22px; background: #1a237e; color: white; border: none; padding: 10px 15px; cursor: pointer; border-radius: 4px; display: none;}
+    .logout-btn {font-size: 16px; background: #e53935; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; transition: background 0.3s ease;}
+    .logout-btn:hover {background: #c62828;}
+    .cards {display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 40px;}
+    .card {background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); transition: transform 0.3s ease, box-shadow 0.3s ease;}
+    .card:hover {transform: translateY(-6px); box-shadow: 0 6px 18px rgba(0,0,0,0.1);}
+    .card h3 {font-size: 20px; margin-bottom: 12px; color: #1a237e;}
+    .card p {font-size: 17px; color: #444;}
+    #overlay {display: none; position: fixed; top: 0; left: 0; height: 100%; width: 100%; background: rgba(0,0,0,0.4); z-index: 900;}
+    @media (max-width: 768px) {.toggle-btn {display: inline-block;} .container {flex-direction: column;} .sidebar {position: fixed; left: 0; top: 0; height: 100%; transform: translateX(-100%);} .sidebar.show {transform: translateX(0);} .main-content {padding: 20px;} .topbar h1 {font-size: 20px;} .cards {grid-template-columns: 1fr;}}
   </style>
 </head>
 <body>
@@ -313,19 +153,22 @@ $totalQuestions = $row['total'];
       <div class="cards">
         <div class="card">
           <h3><i class="fas fa-file-alt"></i> Total Quizzes</h3>
-          <p>120</p>
+          <p><?= htmlspecialchars((string)$totalQuizzes) ?></p>
         </div>
         <div class="card">
           <h3><a href="adminusers.php" style="text-decoration: none; color: #1a237e;"><i class="fas fa-user-friends"></i> Total Users</a></h3>
-      <p><?= $totalUsers ?></p>
+          <p><?= htmlspecialchars((string)$totalUsers) ?></p>
         </div>
         <div class="card">
           <h3><i class="fas fa-database"></i> Questions Uploaded</h3>
-          <p><?= $totalQuestions ?></p>
+          <p><?= htmlspecialchars((string)$totalQuestions) ?></p>
         </div>
         <div class="card">
           <h3><i class="fas fa-star"></i> Top Scorer</h3>
-          <p>Sbs Sen (98%)</p>
+          <p>
+            <?= htmlspecialchars($topScorerName) ?>
+            <?= $topScorerDetail ? ' (' . htmlspecialchars($topScorerDetail) . ')' : '' ?>
+          </p>
         </div>
       </div>
     </div>
