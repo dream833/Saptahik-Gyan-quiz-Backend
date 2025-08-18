@@ -1,0 +1,24 @@
+# Enable Rewrite Engine
+RewriteEngine On
+RewriteBase /quiz/
+
+# 1. Redirect root to adminlogin.php if not already on a file or folder
+DirectoryIndex adminlogin.php
+
+# 2. Allow access to uploaded images and files in /api/uploads/
+<IfModule mod_rewrite.c>
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^api/uploads/(.*)$ api/uploads/$1 [L]
+</IfModule>
+
+# 3. (Optional) Clean URLs — example.com/page instead of page.php
+# Uncomment if you're using route-based URLs
+# RewriteCond %{REQUEST_FILENAME} !-f
+# RewriteCond %{REQUEST_FILENAME} !-d
+# RewriteRule ^(.+)$ $1.php [L,QSA]
+
+# 4. CORS headers (for fetch API calls, if needed)
+<IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin "*"
+</IfModule>
