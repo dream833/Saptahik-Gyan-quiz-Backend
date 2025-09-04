@@ -32,14 +32,18 @@ try {
             qa.correct_answers,
             (qa.total_questions - qa.correct_answers) AS wrong_answers,
             qa.time_taken,
+            qa.attempted_at,
             RANK() OVER (ORDER BY qa.score DESC, qa.time_taken ASC) AS rank
         FROM quiz_attempts qa
         JOIN users u ON qa.user_id = u.id
         JOIN quizzes q ON qa.quiz_id = q.id
-        WHERE qa.quiz_id = ? AND DATE(qa.attempted_at) = ?
+        WHERE qa.quiz_id = ? 
+          AND qa.attempted_at >= ? 
+          AND qa.attempted_at < DATE_ADD(?, INTERVAL 1 DAY)
         ORDER BY qa.score DESC, qa.time_taken ASC
     ");
-    $stmt->execute([$quiz_id, $date]);
+
+    $stmt->execute([$quiz_id, $date, $date]);
     $leaderboard = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     echo json_encode([
@@ -47,7 +51,7 @@ try {
         "quiz_id" => $quiz_id,
         "quiz_date" => $date,
         "leaderboard" => $leaderboard
-    ]);
+    ], JSON_PRETTY_PRINT);
 
 } catch (Exception $e) {
     echo json_encode(["status" => "error", "message" => $e->getMessage()]);
