@@ -146,6 +146,8 @@ if ($top) {
         </li>
 
         <li><a href="leaderboard.php"><i class="fas fa-trophy"></i> Leaderboard</a></li>
+        <li><a href="special-questions.php"><i class="fas fa-comments"></i> Special Questions</a></li>
+          <li><a href="manage-spc-question.php"><i class="fas fa-comments"></i> Manage Special Questions</a></li>
       </ul>
     </div>
 

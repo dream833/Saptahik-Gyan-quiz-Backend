@@ -1,34 +1,54 @@
 <?php
 header("Content-Type: application/json");
-include "db.php";
+require 'db.php';
+
+$inputJSON = file_get_contents("php://input");
+$input = json_decode($inputJSON, true);
+
+if (!$input || !isset($input['quizid']) || !isset($input['date'])) {
+    echo json_encode(["status" => "error", "message" => "quizid and date required"]);
+    exit;
+}
+
+$quiz_id = intval($input['quizid']);
+$date = $input['date']; // format: YYYY-MM-DD
 
 try {
-    if (empty($_GET['date'])) {
-        echo json_encode(["status" => "error", "message" => "Date is required"]);
+    // আজকের দিন দিলে leaderboard lock হবে
+    if ($date == date('Y-m-d')) {
+        echo json_encode([
+            "status" => "error",
+            "message" => "Leaderboard available only after midnight"
+        ]);
         exit;
     }
 
-    $date = $_GET['date']; // format YYYY-MM-DD
-
-    // shudhu oi diner quiz id nibo
     $stmt = $pdo->prepare("
-        SELECT qa.id, u.first_name, u.last_name, qa.score, qa.correct_answers, 
-               qa.total_questions, qa.time_taken, qa.attempted_at
+        SELECT 
+            qa.user_id,
+            u.name,
+            q.title AS quiz_title,
+            qa.score,
+            qa.correct_answers,
+            (qa.total_questions - qa.correct_answers) AS wrong_answers,
+            qa.time_taken,
+            RANK() OVER (ORDER BY qa.score DESC, qa.time_taken ASC) AS rank
         FROM quiz_attempts qa
         JOIN users u ON qa.user_id = u.id
         JOIN quizzes q ON qa.quiz_id = q.id
-        WHERE DATE(q.quiz_date) = ?
-        ORDER BY qa.score DESC, qa.time_taken ASC, qa.attempted_at ASC
+        WHERE qa.quiz_id = ? AND DATE(qa.attempted_at) = ?
+        ORDER BY qa.score DESC, qa.time_taken ASC
     ");
-    $stmt->execute([$date]);
-    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $stmt->execute([$quiz_id, $date]);
+    $leaderboard = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     echo json_encode([
         "status" => "success",
-        "leaderboard" => $rows
+        "quiz_id" => $quiz_id,
+        "quiz_date" => $date,
+        "leaderboard" => $leaderboard
     ]);
 
 } catch (Exception $e) {
     echo json_encode(["status" => "error", "message" => $e->getMessage()]);
 }
-?>

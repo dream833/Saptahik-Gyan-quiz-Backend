@@ -1,8 +1,8 @@
 <?php
 $host = 'localhost';
-$dbname = 'quiz';
-$username = 'root';
-$password = '';
+$dbname = 'saptahik_quiz';
+$username = 'saptahik_quiz';
+$password = 'quiz@833';
 $charset = 'utf8mb4';
 
 try {
