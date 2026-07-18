@@ -1,3 +1,4 @@
+<?php require_once "../utils/api_config.php"; ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -509,44 +510,44 @@
             </div>
 
             <div class="stats-grid">
-                <div class="stat-card">
+                <div class="stat-card" id="statClasses">
                     <div class="stat-header">
                         <div class="stat-icon purple">
                             <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
                         </div>
                     </div>
-                    <div class="stat-value">128</div>
-                    <div class="stat-label">Total Users</div>
+                    <div class="stat-value" id="totalClasses">—</div>
+                    <div class="stat-label">Total Classes</div>
                 </div>
 
-                <div class="stat-card">
+                <div class="stat-card" id="statSubjects">
                     <div class="stat-header">
                         <div class="stat-icon green">
                             <svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/></svg>
                         </div>
                     </div>
-                    <div class="stat-value">15</div>
-                    <div class="stat-label">Mock Tests</div>
+                    <div class="stat-value" id="totalSubjects">—</div>
+                    <div class="stat-label">Total Subjects</div>
                 </div>
 
-                <div class="stat-card">
+                <div class="stat-card" id="statMockTests">
                     <div class="stat-header">
                         <div class="stat-icon orange">
                             <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
                         </div>
                     </div>
-                    <div class="stat-value">342</div>
-                    <div class="stat-label">Results Submitted</div>
+                    <div class="stat-value" id="totalMockTests">—</div>
+                    <div class="stat-label">Mock Tests</div>
                 </div>
 
-                <div class="stat-card">
+                <div class="stat-card" id="statQuestions">
                     <div class="stat-header">
                         <div class="stat-icon blue">
                             <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
                         </div>
                     </div>
-                    <div class="stat-value">85%</div>
-                    <div class="stat-label">Avg. Score</div>
+                    <div class="stat-value" id="totalQuestions">—</div>
+                    <div class="stat-label">Total Questions</div>
                 </div>
             </div>
         </div>
@@ -564,6 +565,28 @@
 
         menuToggle.addEventListener('click', toggleSidebar);
         sidebarOverlay.addEventListener('click', toggleSidebar);
+
+        // Load dashboard stats from API
+        async function loadDashboardStats() {
+            const API_BASE = '<?= ADMIN_API_URL ?>';
+            try {
+                const res = await fetch(API_BASE + 'get-dashboard.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                const result = await res.json();
+                if (result.status && result.data) {
+                    document.getElementById('totalClasses').textContent = result.data.total_classes || '0';
+                    document.getElementById('totalSubjects').textContent = result.data.total_subjects || '0';
+                    document.getElementById('totalMockTests').textContent = result.data.total_mock_tests || '0';
+                    document.getElementById('totalQuestions').textContent = result.data.total_questions || '0';
+                }
+            } catch (err) {
+                console.warn('Could not load dashboard stats:', err);
+            }
+        }
+        loadDashboardStats();
 
         // Highlight active link based on current page
         const currentPage = window.location.pathname.split('/').pop();

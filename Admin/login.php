@@ -1,23 +1,5 @@
 <?php
-// Handle login form submission
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = $_POST['email'] ?? '';
-    $password = $_POST['password'] ?? '';
-
-    // Validate credentials (add your actual DB/auth logic here)
-    if (!empty($email) && !empty($password)) {
-        // Start session and set user data
-        session_start();
-        $_SESSION['admin_logged_in'] = true;
-        $_SESSION['admin_email'] = $email;
-        
-        // Redirect to dashboard
-        header('Location: Dashboard.php');
-        exit;
-    } else {
-        $error = 'Please fill in all fields.';
-    }
-}
+require_once "../utils/api_config.php";
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -350,7 +332,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <span id="successText">Login successful! Redirecting...</span>
         </div>
 
-        <form id="loginForm" method="POST" action="">
+        <form id="loginForm" action="javascript:void(0);">
             <div class="form-group">
                 <label for="email">Email Address</label>
                 <div class="input-wrapper">
@@ -407,7 +389,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         });
 
-        // Form submission with validation
+        // API Base URL from PHP config
+        const API_BASE = '<?= ADMIN_API_URL ?>';
+
         const loginForm = document.getElementById('loginForm');
         const loginBtn = document.getElementById('loginBtn');
         const errorMessage = document.getElementById('errorMessage');
@@ -415,7 +399,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         const successMessage = document.getElementById('successMessage');
         const successText = document.getElementById('successText');
 
-        loginForm.addEventListener('submit', function(e) {
+        loginForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
             // Reset messages
             errorMessage.classList.remove('show');
             successMessage.classList.remove('show');
@@ -425,13 +410,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Client-side validation
             if (!email || !password) {
-                e.preventDefault();
                 showError('Please fill in all fields.');
                 return;
             }
 
             if (!isValidEmail(email)) {
-                e.preventDefault();
                 showError('Please enter a valid email address.');
                 return;
             }
@@ -440,7 +423,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             loginBtn.disabled = true;
             loginBtn.textContent = 'Signing in...';
 
-            // Allow form to submit naturally to PHP for processing & redirect
+            try {
+                const response = await fetch(API_BASE + 'admin_login.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const result = await response.json();
+
+                if (result.status) {
+                    showSuccess('Login successful! Redirecting...');
+                    // Store admin info in sessionStorage
+                    sessionStorage.setItem('admin_logged_in', 'true');
+                    sessionStorage.setItem('admin_name', result.data.name || 'Admin');
+                    sessionStorage.setItem('admin_email', result.data.email || email);
+                    sessionStorage.setItem('admin_role', result.data.role || 'Administrator');
+                    // Redirect to dashboard
+                    setTimeout(() => {
+                        window.location.href = 'Dashboard.php';
+                    }, 800);
+                } else {
+                    showError(result.message || 'Invalid credentials. Please try again.');
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = 'Sign In';
+                }
+            } catch (err) {
+                showError('Network error. Please check your connection.');
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Sign In';
+            }
         });
 
         function isValidEmail(email) {

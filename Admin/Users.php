@@ -1,5 +1,6 @@
 <?php
 session_start();
+require_once "../utils/api_config.php";
 require_once "../utils/db.php";
 
 $users = [];
@@ -27,6 +28,10 @@ try {
     $dbError = 'Unable to load users. Please try again later.';
 }
 ?>
+
+<?php if (!empty($dbError)): ?>
+<script>console.warn('<?= addslashes($dbError) ?>');</script>
+<?php endif; ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -516,7 +521,7 @@ try {
                                         <td>
                                             <div class="user-name">
                                                 <div class="user-avatar"><?= strtoupper(substr($user['full_name'] ?? 'U', 0, 1)) ?></div>
-                                                <span class="name-text"><?= htmlspecialchars($user['full_name'] ?? 'Unknown') ?></span>
+                                                <span class="name-text" onclick="viewUserDetails(<?= $user['id'] ?>)" style="cursor:pointer;color:#6366f1;"><?= htmlspecialchars($user['full_name'] ?? 'Unknown') ?></span>
                                             </div>
                                         </td>
                                         <td class="email-cell"><?= htmlspecialchars($user['email'] ?? '-') ?></td>
@@ -625,6 +630,38 @@ try {
             filterUsers();
             searchInput.focus();
         });
+
+        // ===== API Integration: View User Details =====
+        const API_BASE = '<?= ADMIN_API_URL ?>';
+
+        function viewUserDetails(userId) {
+            fetch(API_BASE + 'fetch-user.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId })
+            })
+            .then(res => res.json())
+            .then(result => {
+                if (result.status && result.data) {
+                    const u = result.data;
+                    const info = [
+                        '👤 Name: ' + (u.full_name || 'N/A'),
+                        '📧 Email: ' + (u.email || 'N/A'),
+                        '📱 Mobile: ' + (u.mobile || 'N/A'),
+                        '📚 Class: ' + (u.class_name || 'N/A'),
+                        '📍 Address: ' + (u.address || 'N/A'),
+                        '📝 Bio: ' + (u.about_me || 'N/A'),
+                        '📅 Joined: ' + (u.created_at || 'N/A')
+                    ].join('\n');
+                    alert(info);
+                } else {
+                    alert('Error: ' + (result.message || 'Could not load user details.'));
+                }
+            })
+            .catch(err => {
+                alert('Network error. Could not load user details.');
+            });
+        }
     </script>
 </body>
 </html>

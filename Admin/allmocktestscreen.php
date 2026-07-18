@@ -1,3 +1,4 @@
+<?php require_once "../utils/api_config.php"; ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -715,53 +716,108 @@
     menuToggle.addEventListener('click', toggleSidebar);
     sidebarOverlay.addEventListener('click', toggleSidebar);
 
-    // ===== SAMPLE DATA =====
-    const data = {
-        classes: [
-            { id: 1, name: 'Class 6' }, { id: 2, name: 'Class 7' }, { id: 3, name: 'Class 8' },
-            { id: 4, name: 'Class 9' }, { id: 5, name: 'Class 10' }
-        ],
-        subjects: {
-            1: [{ id: 1, name: 'Mathematics' }, { id: 2, name: 'Science' }, { id: 3, name: 'English' }],
-            2: [{ id: 4, name: 'Mathematics' }, { id: 5, name: 'Science' }, { id: 6, name: 'English' }],
-            3: [{ id: 7, name: 'Mathematics' }, { id: 8, name: 'Physics' }, { id: 9, name: 'Chemistry' }, { id: 10, name: 'Biology' }],
-            4: [{ id: 11, name: 'Mathematics' }, { id: 12, name: 'Physics' }, { id: 13, name: 'Chemistry' }, { id: 14, name: 'Biology' }],
-            5: [{ id: 15, name: 'Mathematics' }, { id: 16, name: 'Physics' }, { id: 17, name: 'Chemistry' }, { id: 18, name: 'Biology' }]
-        },
-        chapters: {},
-        sets: {}
-    };
-    // Auto-generate chapters & sets
-    [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18].forEach(subId => {
-        data.chapters[subId] = [];
-        for (let i = 1; i <= 3; i++) data.chapters[subId].push({ id: subId * 100 + i, name: 'Chapter ' + i });
-    });
-    for (let subId in data.chapters) {
-        data.chapters[subId].forEach(ch => {
-            data.sets[ch.id] = [];
-            for (let i = 1; i <= 3; i++) data.sets[ch.id].push({ id: ch.id * 10 + i, name: 'Set-' + i });
-        });
-    }
+    // ===== API CONFIGURATION =====
+    const ADMIN_API = '<?= ADMIN_API_URL ?>';
+    const APP_API = '<?= APP_API_URL ?>';
 
     // ===== STATE =====
-    let questions = [];
-    let questionIdCounter = 1;
+    let data = { classes: [], subjects: {}, chapters: {}, sets: {} };
+    let allQuestions = [];
     let editingQuestionId = null;
-    let selectedSetId = null; // id of the currently viewed set in detail
-    let nextClassId = 100, nextSubjectId = 100, nextChapterId = 10000, nextSetId = 100000;
+    let selectedSetId = null;
+    let currentClassId = 0, currentSubjectId = 0, currentChapterId = 0;
 
-    // ===== SEED DATA =====
-    function loadSeedQuestions() {
-        const s = (cls, sub, ch, set) => {
-            const classId = cls, subjectId = sub, chapterId = ch, setId = set;
-            const className = data.classes.find(c => c.id === classId)?.name || '';
-            const subjectName = (data.subjects[classId]||[]).find(s => s.id === subjectId)?.name || '';
-            const chapterName = (data.chapters[subjectId]||[]).find(c => c.id === chapterId)?.name || '';
-            const setName = (data.sets[chapterId]||[]).find(s => s.id === setId)?.name || '';
-            return { classId, subjectId, chapterId, setId, className, subjectName, chapterName, setName };
-        };
+    // ===== API HELPER =====
+    async function apiPost(endpoint, payload) {
+        try {
+            const res = await fetch(ADMIN_API + endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            return await res.json();
+        } catch(e) {
+            return { status: false, message: 'Network error: ' + e.message };
+        }
+    }
 
-        const qs = [
+    // ===== LOAD CLASSES FROM API =====
+    async function loadClasses() {
+        try {
+            const res = await fetch(APP_API + 'get-class.php', { method: 'GET', headers: { 'Accept': 'application/json' } });
+            const result = await res.json();
+            if (result.status) {
+                data.classes = result.data || [];
+            }
+        } catch(e) { console.warn('Failed to load classes:', e); }
+        populateClasses();
+    }
+
+    // ===== LOAD SUBJECTS FROM API =====
+    async function loadSubjects(classId) {
+        try {
+            const res = await fetch(APP_API + 'get-subject.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ class_id: classId })
+            });
+            const result = await res.json();
+            data.subjects[classId] = (result.status && result.data) ? result.data : [];
+        } catch(e) {
+            console.warn('Failed to load subjects:', e);
+            data.subjects[classId] = [];
+        }
+        populateSubjects(classId);
+    }
+
+    // ===== LOAD CHAPTERS FROM API =====
+    async function loadChapters(subjectId) {
+        try {
+            const result = await apiPost('get-chapter.php', { subject_id: subjectId });
+            data.chapters[subjectId] = (result.status && result.data) ? result.data : [];
+        } catch(e) {
+            data.chapters[subjectId] = [];
+        }
+        populateChapters(subjectId);
+    }
+
+    // ===== LOAD SETS FROM API =====
+    async function loadSets(chapterId) {
+        try {
+            const result = await apiPost('get-set-details.php', { chapter_id: chapterId });
+            data.sets[chapterId] = (result.status && result.data) ? result.data.map(s => ({
+                id: s.id, name: s.set_name, duration_minutes: s.duration_minutes, total_questions: s.total_questions
+            })) : [];
+        } catch(e) {
+            data.sets[chapterId] = [];
+        }
+        displaySets(chapterId);
+    }
+
+    // ===== LOAD QUESTIONS FOR A SET =====
+    async function loadQuestionsForSet(setId) {
+        try {
+            const result = await apiPost('get-all-mock-questions.php', { set_id: setId });
+            if (result.status && result.data) {
+                allQuestions = result.data.map(q => ({
+                    id: q.id, text: q.question,
+                    opts: [q.option_a, q.option_b, q.option_c, q.option_d],
+                    correct: q.correct_answer,
+                    date: q.created_at ? q.created_at.split(' ')[0] : '',
+                    time: q.created_at ? (q.created_at.split(' ')[1] || '') : '',
+                    setId: setId
+                }));
+            } else {
+                allQuestions = [];
+            }
+        } catch(e) {
+            allQuestions = [];
+        }
+        renderDetailQuestions();
+    }
+
+    // ===== SEED QUESTIONS (fallback if API unavailable) =====
+    const qs = [
             // === Class 6 > Mathematics > Ch1 > Set-1 ===
             { text: 'What is the sum of 125 and 237?', opts: ['352', '362', '372', '382'], correct: 'B', ctx: s(1,1,101,1011), dt: '2026-06-28', tm: '10:15 AM' },
             { text: 'What is 45 × 12?', opts: ['480', '520', '540', '560'], correct: 'C', ctx: s(1,1,101,1011), dt: '2026-06-28', tm: '10:20 AM' },
