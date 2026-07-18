@@ -456,6 +456,43 @@ require_once "../utils/api_config.php";
         /* ===== OVERLAY ===== */
         .sidebar-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 999; }
         .sidebar-overlay.active { display: block; }
+        /* ===== LOADING SPINNER ===== */
+        .spinner {
+            display: inline-block; width: 18px; height: 18px;
+            border: 2.5px solid #e2e8f0; border-top-color: #6366f1;
+            border-radius: 50%; animation: spin 0.6s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .btn-loading { pointer-events: none; opacity: 0.8; }
+        .btn-loading .spinner { margin-right: 6px; }
+
+        /* ===== NOTIFICATION TOAST ===== */
+        .toast-container {
+            position: fixed; top: 20px; right: 20px; z-index: 99999;
+            display: flex; flex-direction: column; gap: 8px;
+            max-width: 360px; width: calc(100% - 40px);
+        }
+        .toast {
+            padding: 14px 18px; border-radius: 12px;
+            font-size: 14px; font-weight: 500; font-family: 'Inter', sans-serif;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+            display: flex; align-items: center; gap: 10px;
+            animation: toastIn 0.3s ease; cursor: pointer;
+        }
+        .toast-success { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+        .toast-error { background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; }
+        .toast-info { background: #eef2ff; color: #4f46e5; border: 1px solid #c7d2fe; }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(100px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* ===== TOUCH-FRIENDLY ===== */
+        .btn, .sidebar-nav a, .sidebar-footer a { -webkit-tap-highlight-color: transparent; }
+        .btn { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .sidebar { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .sidebar-overlay { transition: opacity 0.3s ease; }
+
         /* ===== RESPONSIVE ===== */
         @media (max-width: 768px) {
             .sidebar { transform: translateX(-100%); }
@@ -463,23 +500,42 @@ require_once "../utils/api_config.php";
             .sidebar-overlay.active { display: block; }
             .main-content { margin-left: 0; }
             .topbar .menu-toggle { display: block; }
-            .topbar { padding: 14px 20px; }
-            .page-content { padding: 20px; }
+            .topbar { padding: 12px 16px; }
+            .topbar .page-title { font-size: 17px; }
+            .page-content { padding: 16px; }
+            .page-header h1 { font-size: 22px; }
+            .page-header p { font-size: 14px; }
             .form-grid { grid-template-columns: 1fr; }
-            .form-card { padding: 20px; }
+            .form-card { padding: 16px; }
             .options-grid { grid-template-columns: 1fr; }
             .question-item .q-options { grid-template-columns: 1fr; }
-            .correct-answer-group { flex-wrap: wrap; }
-            .actions-cell { flex-direction: column; }
-            thead th, tbody td { padding: 12px 14px; }
+            .correct-answer-group { flex-wrap: wrap; gap: 8px; }
+            .correct-answer-group label { flex: 1; min-height: 38px; padding: 8px 14px; font-size: 13px; }
+            .actions-cell { flex-direction: row; flex-wrap: wrap; gap: 4px; }
+            .actions-cell .btn { flex: 1; min-width: 0; justify-content: center; }
+            thead th, tbody td { padding: 10px 12px; font-size: 13px; }
+            .btn { font-size: 13px; padding: 8px 16px; min-height: 38px; }
+            .btn-sm { font-size: 11px; padding: 6px 10px; min-height: 34px; }
             .modal { max-width: 100%; margin: 10px; border-radius: 16px; }
+            .tab-buttons { flex-wrap: wrap; }
+            .tab-buttons .btn { flex: 1; }
+            .class-badge, .subject-badge { font-size: 11px; padding: 3px 8px; }
         }
         @media (max-width: 480px) {
-            .page-content { padding: 16px; }
-            .form-card { padding: 16px; }
-            .page-header h1 { font-size: 22px; }
-            .topbar .page-title { font-size: 17px; }
-            thead th, tbody td { padding: 10px 12px; font-size: 13px; }
+            .page-content { padding: 12px; }
+            .topbar { padding: 10px 12px; }
+            .topbar .page-title { font-size: 15px; }
+            .form-card { padding: 14px; }
+            .page-header h1 { font-size: 20px; }
+            .page-header p { font-size: 13px; }
+            thead th { padding: 8px 10px; font-size: 10px; }
+            tbody td { padding: 8px 10px; font-size: 12px; }
+            .btn { font-size: 12px; padding: 7px 14px; min-height: 36px; }
+            .btn-sm { font-size: 10px; padding: 5px 8px; min-height: 32px; }
+            .correct-answer-group label { padding: 8px 12px; font-size: 12px; min-height: 36px; }
+            .form-card h2 { font-size: 14px; }
+            .class-badge, .subject-badge { font-size: 10px; padding: 2px 6px; }
+            .modal { margin: 5px; border-radius: 12px; }
         }
         .sidebar-nav::-webkit-scrollbar { width: 4px; }
         .sidebar-nav::-webkit-scrollbar-track { background: transparent; }
@@ -1210,30 +1266,7 @@ require_once "../utils/api_config.php";
                 `;
             });
             tbody.innerHTML = html;
-        }}</span></td>
-                        <td>
-                            <div class="actions-cell">
-                                <button class="btn btn-info btn-sm" onclick="openAddQuestion(${test.id})">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-                                    Add Q
-                                </button>
-                                <button class="btn btn-success btn-sm" onclick="viewQuestions(${test.id})">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
-                                    ${qCount} Q
-                                </button>
-                                <button class="btn btn-danger btn-sm" onclick="deleteMockTest(${test.id})">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-                                    Delete
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            });
-            tbody.innerHTML = html;
-        }
-
-        // ===== QUESTION MODAL =====
+        }        // ===== QUESTION MODAL =====
         function openAddQuestion(testId) {
             editingTestId = testId;
             editingQuestionId = null;
@@ -1249,34 +1282,33 @@ require_once "../utils/api_config.php";
             }
         }
 
-        function editQuestion(testId, qId) {
-            const test = mockTests.find(t => t.id === testId);
-            if (!test) return;
-            const q = test.questions.find(q => q.id === qId);
+        async function editQuestion(testId, qId) {
+            const result = await apiPost('get-mock-question-list.php', { mock_test_id: testId });
+            if (!result.status || !result.questions) {
+                api.showToast('Could not load question details.', 'error');
+                return;
+            }
+            const q = result.questions.find(q => q.id == qId);
             if (!q) return;
-
             editingTestId = testId;
             editingQuestionId = qId;
-
             document.getElementById('questionModalTitle').textContent = 'Edit Question';
             document.getElementById('saveQuestionBtn').textContent = 'Update Question';
-            document.getElementById('questionText').value = q.text;
-            document.getElementById('optA').value = q.options[0];
-            document.getElementById('optB').value = q.options[1];
-            document.getElementById('optC').value = q.options[2];
-            document.getElementById('optD').value = q.options[3];
-
+            document.getElementById('questionText').value = q.question;
+            document.getElementById('optA').value = q.option_a;
+            document.getElementById('optB').value = q.option_b;
+            document.getElementById('optC').value = q.option_c;
+            document.getElementById('optD').value = q.option_d;
             const radios = document.getElementsByName('correctAns');
             radios.forEach(r => {
-                r.checked = r.value === q.correct;
-                r.parentElement.classList.toggle('selected', r.value === q.correct);
+                r.checked = r.value === q.correct_answer;
+                r.parentElement.classList.toggle('selected', r.value === q.correct_answer);
             });
-
             document.getElementById('questionModal').classList.add('active');
             closeViewQuestionsModal();
         }
 
-        function saveQuestion() {
+        async function saveQuestion() {
             const text = document.getElementById('questionText').value.trim();
             const optA = document.getElementById('optA').value.trim();
             const optB = document.getElementById('optB').value.trim();
@@ -1284,50 +1316,48 @@ require_once "../utils/api_config.php";
             const optD = document.getElementById('optD').value.trim();
             const correctRadio = document.querySelector('input[name="correctAns"]:checked');
             const correct = correctRadio ? correctRadio.value : '';
-
             if (!text || !optA || !optB || !optC || !optD || !correct) {
-                alert('Please fill in all fields and select the correct answer.');
+                api.showToast('Please fill in all fields and select the correct answer.', 'error');
                 return;
             }
-
-            const test = mockTests.find(t => t.id === editingTestId);
-            if (!test) return;
-
+            let result;
             if (editingQuestionId) {
-                // Edit existing
-                const q = test.questions.find(q => q.id === editingQuestionId);
-                if (q) {
-                    q.text = text;
-                    q.options = [optA, optB, optC, optD];
-                    q.correct = correct;
-                }
+                result = await apiPost('update-mock-questions.php', {
+                    question_id: editingQuestionId,
+                    question: text, option_a: optA, option_b: optB,
+                    option_c: optC, option_d: optD, correct_answer: correct
+                });
             } else {
-                // Add new
-                test.questions.push({
-                    id: questionIdCounter++,
-                    text,
-                    options: [optA, optB, optC, optD],
-                    correct
+                result = await apiPost('add-mock-questions.php', {
+                    mock_test_id: editingTestId,
+                    question: text, option_a: optA, option_b: optB,
+                    option_c: optC, option_d: optD, correct_answer: correct
                 });
             }
-
+            if (result.status) {
+                api.showToast(editingQuestionId ? 'Question updated!' : 'Question added!', 'success');
+            } else {
+                api.showToast(result.message || 'Failed to save question.', 'error');
+                return;
+            }
             clearQuestionForm();
             document.getElementById('questionModal').classList.remove('active');
-            renderTable();
-
-            // If view modal is open, refresh it
+            loadAllTests();
             if (document.getElementById('viewQuestionsModal').classList.contains('active')) {
                 viewQuestions(editingTestId);
             }
         }
 
-        function deleteQuestion(testId, qId) {
+        async function deleteQuestion(testId, qId) {
             if (!confirm('Delete this question?')) return;
-            const test = mockTests.find(t => t.id === testId);
-            if (!test) return;
-            test.questions = test.questions.filter(q => q.id !== qId);
-            renderTable();
-            viewQuestions(testId); // refresh view
+            const result = await apiPost('delete-mock-questions.php', { question_id: qId });
+            if (result.status) {
+                api.showToast('Question deleted!', 'success');
+                loadAllTests();
+                viewQuestions(testId);
+            } else {
+                api.showToast(result.message || 'Failed to delete question.', 'error');
+            }
         }
 
         function clearQuestionForm() {
@@ -1336,11 +1366,8 @@ require_once "../utils/api_config.php";
             document.getElementById('optB').value = '';
             document.getElementById('optC').value = '';
             document.getElementById('optD').value = '';
-            const radios = document.getElementsByName('correctAns');
-            radios.forEach(r => {
-                r.checked = false;
-                r.parentElement.classList.remove('selected');
-            });
+            document.querySelectorAll('.correct-answer-group label').forEach(l => l.classList.remove('selected'));
+            document.querySelectorAll('input[name="correctAns"]').forEach(r => r.checked = false);
         }
 
         function closeQuestionModal() {
@@ -1348,49 +1375,40 @@ require_once "../utils/api_config.php";
             editingQuestionId = null;
         }
 
-        // ===== VIEW QUESTIONS MODAL =====
-        function viewQuestions(testId) {
-            const test = mockTests.find(t => t.id === testId);
-            if (!test) return;
-
+        async function viewQuestions(testId) {
             editingTestId = testId;
-            document.getElementById('viewQuestionsTitle').textContent = `Questions - ${test.name}`;
+            const result = await apiPost('get-mock-question-list.php', { mock_test_id: testId });
+            document.getElementById('viewQuestionsTitle').textContent = 'Questions - Test #' + testId;
             const list = document.getElementById('questionsList');
-
-            if (test.questions.length === 0) {
+            if (!result.status || !result.questions || result.questions.length === 0) {
                 list.innerHTML = '<p style="color:#94a3b8;text-align:center;padding:20px;">No questions added yet.</p>';
-            } else {
-                let html = '';
-                test.questions.forEach((q, idx) => {
-                    const labels = ['A', 'B', 'C', 'D'];
-                    html += `
-                        <div class="question-item">
-                            <div class="q-header">
-                                <div class="q-text">${idx + 1}. ${q.text}</div>
-                            </div>
-                            <div class="q-options">
-                                ${q.options.map((opt, i) => `
-                                    <div class="q-option ${labels[i] === q.correct ? 'correct' : ''}">
-                                        ${labels[i]}. ${opt} ${labels[i] === q.correct ? '✓' : ''}
-                                    </div>
-                                `).join('')}
-                            </div>
-                            <div class="q-actions">
-                                <button class="btn btn-warning btn-sm" onclick="editQuestion(${testId}, ${q.id})">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-                                    Edit
-                                </button>
-                                <button class="btn btn-danger btn-sm" onclick="deleteQuestion(${testId}, ${q.id})">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-                                    Delete
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                });
-                list.innerHTML = html;
+                document.getElementById('viewQuestionsModal').classList.add('active');
+                return;
             }
-
+            let html = '';
+            result.questions.forEach((q, idx) => {
+                const labels = ['A','B','C','D'];
+                const opts = [q.option_a, q.option_b, q.option_c, q.option_d];
+                const optsHtml = opts.map((opt, i) => {
+                    const isCorrect = labels[i] === q.correct_answer;
+                    return `<div class="q-option${isCorrect ? ' correct' : ''}">${labels[i]}. ${opt}${isCorrect ? ' ✓' : ''}</div>`;
+                }).join('');
+                html += `
+                    <div class="question-item">
+                        <div class="q-header"><div class="q-text">${idx + 1}. ${q.question}</div></div>
+                        <div class="q-options">${optsHtml}</div>
+                        <div class="q-actions">
+                            <button class="btn btn-warning btn-sm" onclick="editQuestion(${testId}, ${q.id})">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg> Edit
+                            </button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteQuestion(${testId}, ${q.id})">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg> Delete
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            list.innerHTML = html;
             document.getElementById('viewQuestionsModal').classList.add('active');
         }
 
@@ -1398,15 +1416,12 @@ require_once "../utils/api_config.php";
             document.getElementById('viewQuestionsModal').classList.remove('active');
         }
 
-        // Close modals on overlay click
         document.getElementById('questionModal').addEventListener('click', function(e) {
             if (e.target === this) closeQuestionModal();
         });
         document.getElementById('viewQuestionsModal').addEventListener('click', function(e) {
             if (e.target === this) closeViewQuestionsModal();
         });
-
-        // Toggle selected class on correct answer radio labels
         document.querySelectorAll('.correct-answer-group input[type="radio"]').forEach(radio => {
             radio.addEventListener('change', function() {
                 document.querySelectorAll('.correct-answer-group label').forEach(l => l.classList.remove('selected'));
@@ -1421,4 +1436,3 @@ require_once "../utils/api_config.php";
     </script>
 </body>
 </html>
-

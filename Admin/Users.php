@@ -375,29 +375,66 @@ require_once "../utils/api_config.php";
         .sidebar-overlay.active { display: block; }
 
         /* ===== RESPONSIVE ===== */
+        /* ===== NOTIFICATION TOAST ===== */
+        .toast-container {
+            position: fixed; top: 20px; right: 20px; z-index: 99999;
+            display: flex; flex-direction: column; gap: 8px;
+            max-width: 360px; width: calc(100% - 40px);
+        }
+        .toast {
+            padding: 14px 18px; border-radius: 12px;
+            font-size: 14px; font-weight: 500; font-family: 'Inter', sans-serif;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+            display: flex; align-items: center; gap: 10px;
+            animation: toastIn 0.3s ease; cursor: pointer;
+        }
+        .toast-success { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+        .toast-error { background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; }
+        .toast-info { background: #eef2ff; color: #4f46e5; border: 1px solid #c7d2fe; }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(100px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* ===== TOUCH-FRIENDLY ===== */
+        .btn, .sidebar-nav a, .sidebar-footer a { -webkit-tap-highlight-color: transparent; }
+        .btn { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); min-height: 38px; }
+        .btn-sm { min-height: 32px; }
+        .sidebar { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .sidebar-overlay { transition: opacity 0.3s ease; }
+
         @media (max-width: 768px) {
             .sidebar { transform: translateX(-100%); }
             .sidebar.open { transform: translateX(0); }
             .sidebar-overlay.active { display: block; }
             .main-content { margin-left: 0; }
             .topbar .menu-toggle { display: block; }
-            .topbar { padding: 14px 20px; }
-            .page-content { padding: 20px; }
+            .topbar { padding: 12px 16px; }
+            .topbar .page-title { font-size: 17px; }
+            .page-content { padding: 16px; }
             .page-header { flex-direction: column; align-items: stretch; }
+            .page-header h1 { font-size: 22px; }
             .search-wrapper { min-width: 100%; }
             table { font-size: 13px; }
             thead th, tbody td { padding: 10px 12px; }
             .bio-cell { max-width: 120px; }
+            .btn { font-size: 13px; padding: 8px 16px; }
+            .btn-sm { font-size: 11px; padding: 6px 10px; }
             .user-avatar { width: 30px; height: 30px; font-size: 12px; }
+            .class-badge { font-size: 11px; padding: 3px 8px; }
         }
 
         @media (max-width: 480px) {
-            .topbar .page-title { font-size: 17px; }
-            .page-content { padding: 16px; }
+            .topbar .page-title { font-size: 15px; }
+            .topbar { padding: 10px 12px; }
+            .page-content { padding: 12px; }
+            .page-header h1 { font-size: 20px; }
             thead th, tbody td { padding: 8px 10px; font-size: 12px; }
             .user-name { gap: 6px; }
+            .btn { font-size: 12px; padding: 7px 14px; min-height: 36px; }
+            .btn-sm { font-size: 10px; padding: 5px 8px; min-height: 30px; }
             .user-avatar { width: 26px; height: 26px; font-size: 10px; }
-            .class-badge { font-size: 10px; padding: 2px 8px; }
+            .class-badge { font-size: 10px; padding: 2px 6px; }
             .phone-cell { font-size: 12px; }
         }
 
@@ -541,11 +578,7 @@ require_once "../utils/api_config.php";
             tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:40px;color:#94a3b8;"><div style="display:flex;align-items:center;justify-content:center;gap:8px;"><div class="loading-spinner" style="width:20px;height:20px;border:2px solid #e2e8f0;border-top-color:#6366f1;border-radius:50%;animation:spin 0.6s linear infinite;"></div> Loading users...</div></td></tr>';
 
             try {
-                const res = await fetch(ADMIN_API + 'fetch-user.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({})
-                });
+                const res = await fetch(ADMIN_API + 'get-users.php');
                 const result = await res.json();
                 if (result.status && result.data) {
                     allUsers = result.data;

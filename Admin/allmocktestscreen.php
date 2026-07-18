@@ -426,10 +426,64 @@ require_once "../utils/api_config.php";
             flex: 1; height: 1px; background: #e2e8f0;
         }
 
+        /* ===== LOADING SPINNER ===== */
+        .spinner {
+            display: inline-block; width: 18px; height: 18px;
+            border: 2.5px solid #e2e8f0; border-top-color: #6366f1;
+            border-radius: 50%; animation: spin 0.6s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .btn-loading { pointer-events: none; opacity: 0.8; }
+        .btn-loading .spinner { margin-right: 6px; }
+
+        /* ===== NOTIFICATION TOAST ===== */
+        .toast-container {
+            position: fixed; top: 20px; right: 20px; z-index: 99999;
+            display: flex; flex-direction: column; gap: 8px;
+            max-width: 360px; width: calc(100% - 40px);
+        }
+        .toast {
+            padding: 14px 18px; border-radius: 12px;
+            font-size: 14px; font-weight: 500; font-family: 'Inter', sans-serif;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+            display: flex; align-items: center; gap: 10px;
+            animation: toastIn 0.3s ease; cursor: pointer;
+        }
+        .toast-success { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+        .toast-error { background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; }
+        .toast-info { background: #eef2ff; color: #4f46e5; border: 1px solid #c7d2fe; }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(100px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* ===== UI POLISH ===== */
+        .btn { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .form-group select, .form-group input, .form-group textarea {
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .set-card { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        table tbody tr { transition: background 0.15s ease; }
+        .sidebar { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .sidebar-overlay { transition: opacity 0.3s ease; }
+
+        /* ===== TOUCH-FRIENDLY TARGETS ===== */
+        .btn, .set-card, .detail-back, .sidebar-nav a {
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .correct-answer-group label {
+            min-height: 44px; display: flex; align-items: center; justify-content: center;
+        }
+        .actions-cell .btn {
+            min-height: 38px;
+        }
+
         /* ===== RESPONSIVE ===== */
         @media (max-width: 1024px) {
             .form-grid-4 { grid-template-columns: 1fr 1fr; }
-            .set-grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+            .set-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+            .topbar-right .admin-info > div:last-child { display: none; }
         }
         @media (max-width: 768px) {
             .sidebar { transform: translateX(-100%); }
@@ -437,34 +491,96 @@ require_once "../utils/api_config.php";
             .sidebar-overlay.active { display: block; }
             .main-content { margin-left: 0; }
             .topbar .menu-toggle { display: block; }
-            .topbar { padding: 14px 20px; }
-            .page-content { padding: 20px; }
+            .topbar { padding: 12px 16px; }
+            .topbar .page-title { font-size: 17px; }
+            .topbar-right .admin-info { gap: 6px; }
+            .page-content { padding: 16px; }
             .form-grid-4 { grid-template-columns: 1fr; }
             .form-grid { grid-template-columns: 1fr; }
-            .form-card { padding: 20px; }
+            .form-card { padding: 18px; }
+            .form-card h2 { font-size: 15px; }
             .set-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
             .set-card { padding: 14px 16px; }
-            .step-indicator { gap: 12px; padding: 12px 14px; }
-            .step { font-size: 12px; }
-            .step-connector { width: 12px; }
-            .actions-cell { flex-direction: column; }
-            thead th, tbody td { padding: 12px 14px; }
-            .group-header td { padding: 8px 14px; }
-            .options-inline { flex-direction: column; gap: 4px; }
+            .step-indicator { gap: 10px; padding: 12px 14px; overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
+            .step { font-size: 12px; white-space: nowrap; flex-shrink: 0; }
+            .step-connector { width: 12px; flex-shrink: 0; }
+            .actions-cell { flex-direction: row; flex-wrap: wrap; gap: 4px; }
+            .actions-cell .btn { padding: 6px 12px; font-size: 12px; flex: 1; min-width: 0; justify-content: center; }
+            .select-with-add { flex-wrap: nowrap; }
+            .select-with-add select { min-width: 0; }
+            .select-with-add .btn { padding: 10px 10px; }
+            .add-inline { flex-wrap: nowrap; }
+            .add-inline input { min-width: 0; }
+            .add-inline .btn { white-space: nowrap; padding: 8px 12px; font-size: 12px; }
+            thead th, tbody td { padding: 10px 12px; }
+            .group-header td { padding: 8px 12px; }
+            .options-inline { flex-direction: row; flex-wrap: wrap; gap: 4px; }
+            .options-inline .opt-chip { font-size: 10px; padding: 2px 6px; }
             .section-divider { flex-direction: column; align-items: flex-start; gap: 8px; }
             .section-divider .divider-line { width: 100%; }
+            .section-divider h2 { font-size: 14px; white-space: normal; }
+            .table-header { padding: 16px 16px 0; flex-direction: column; align-items: flex-start; }
+            .table-header .result-count { font-size: 12px; }
+            .detail-path { font-size: 13px; gap: 4px; }
+            .correct-answer-group { gap: 8px; }
+            .correct-answer-group label { padding: 8px 14px; font-size: 13px; min-height: 38px; flex: 1; }
+            .form-actions { flex-direction: column; }
+            .form-actions .btn { width: 100%; justify-content: center; }
+            .empty-state { padding: 40px 16px; }
+            .empty-state h3 { font-size: 15px; }
+            .empty-state p { font-size: 13px; }
+            .class-badge, .subject-badge, .chapter-badge, .set-badge { font-size: 11px; padding: 3px 8px; }
+            .correct-ans-badge { font-size: 11px; }
+            .q-num { width: 26px; height: 26px; font-size: 12px; }
         }
         @media (max-width: 480px) {
-            .page-content { padding: 16px; }
-            .form-card { padding: 16px; }
-            .page-header h1 { font-size: 22px; }
-            .topbar .page-title { font-size: 17px; }
-            thead th, tbody td { padding: 10px 12px; font-size: 13px; }
+            .page-content { padding: 12px; }
+            .form-card { padding: 14px; margin-bottom: 16px; }
+            .form-card h2 { font-size: 14px; }
+            .page-header { margin-bottom: 16px; }
+            .page-header h1 { font-size: 20px; }
+            .page-header p { font-size: 13px; }
+            .topbar { padding: 10px 12px; }
+            .topbar .page-title { font-size: 15px; }
+            thead th { padding: 8px 10px; font-size: 10px; }
+            tbody td { padding: 8px 10px; font-size: 12px; }
             .set-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
             .set-card { padding: 12px 14px; }
-            .step-indicator { gap: 8px; padding: 10px 12px; flex-wrap: nowrap; overflow-x: auto; }
-            .step { font-size: 11px; white-space: nowrap; }
+            .set-card .set-name { font-size: 13px; }
+            .set-card .set-count { font-size: 10px; padding: 2px 8px; }
+            .step-indicator { gap: 6px; padding: 10px 12px; }
+            .step { font-size: 11px; }
+            .step .step-num { width: 22px; height: 22px; font-size: 10px; }
             .step-connector { width: 8px; }
+            .form-group label { font-size: 12px; }
+            .form-group select, .form-group input, .form-group textarea { font-size: 13px; padding: 8px 12px; }
+            .btn { font-size: 13px; padding: 8px 16px; }
+            .btn-sm { font-size: 11px; padding: 6px 10px; }
+            .actions-cell .btn { font-size: 11px; padding: 5px 8px; min-height: 34px; }
+            .actions-cell .btn svg { width: 12px; height: 12px; }
+            .correct-answer-group label { padding: 8px 12px; font-size: 12px; min-height: 36px; }
+            .table-header { padding: 12px 12px 0; }
+            .table-header h3 { font-size: 14px; }
+            .group-header td { padding: 6px 10px; font-size: 12px; }
+            .group-header .group-count { font-size: 11px; padding: 3px 10px; }
+            .group-header .group-count strong { font-size: 12px; }
+            .group-arrow { font-size: 12px; }
+            .class-badge, .subject-badge, .chapter-badge, .set-badge { font-size: 10px; padding: 2px 6px; }
+            .options-inline .opt-chip { font-size: 9px; padding: 2px 5px; }
+            .correct-ans-badge { font-size: 10px; padding: 2px 8px; }
+            .correct-ans-badge .opt-label-sm { width: 16px; height: 16px; line-height: 16px; font-size: 9px; }
+            .q-num { width: 22px; height: 22px; font-size: 11px; }
+            .form-card h2 .form-icon { width: 26px; height: 26px; }
+            .form-card h2 .form-icon svg { width: 14px; height: 14px; }
+            .select-with-add .btn { padding: 8px 8px; }
+            .select-with-add .btn svg { width: 14px; height: 14px; }
+            .detail-path { font-size: 12px; }
+            .detail-back { font-size: 12px; padding: 5px 10px; }
+            .empty-state { padding: 30px 12px; }
+            .empty-state .empty-icon { width: 36px; height: 36px; }
+            .empty-state .empty-icon svg { width: 18px; height: 18px; }
+            .empty-state h3 { font-size: 14px; }
+            .empty-state p { font-size: 12px; }
         }
         .sidebar-nav::-webkit-scrollbar { width: 4px; }
         .sidebar-nav::-webkit-scrollbar-track { background: transparent; }
@@ -732,6 +848,12 @@ require_once "../utils/api_config.php";
     let editingQuestionId = null;
     let selectedSetId = null;
     let currentClassId = 0, currentSubjectId = 0, currentChapterId = 0;
+    let questions = [];
+    let detailContext = {};
+    let nextClassId = 1000;
+    let nextSubjectId = 1000;
+    let nextChapterId = 1000;
+    let nextSetId = 1000;
 
     // ===== API HELPER =====
     async function apiPost(endpoint, payload) {
@@ -756,7 +878,7 @@ require_once "../utils/api_config.php";
                 data.classes = result.data || [];
             }
         } catch(e) { console.warn('Failed to load classes:', e); }
-        populateClasses();
+        populateSelect('class');
     }
 
     // ===== LOAD SUBJECTS FROM API =====
@@ -773,7 +895,7 @@ require_once "../utils/api_config.php";
             console.warn('Failed to load subjects:', e);
             data.subjects[classId] = [];
         }
-        populateSubjects(classId);
+        populateSelect('subject');
     }
 
     // ===== LOAD CHAPTERS FROM API =====
@@ -784,7 +906,7 @@ require_once "../utils/api_config.php";
         } catch(e) {
             data.chapters[subjectId] = [];
         }
-        populateChapters(subjectId);
+        populateSelect('chapter');
     }
 
     // ===== LOAD SETS FROM API =====
@@ -797,7 +919,7 @@ require_once "../utils/api_config.php";
         } catch(e) {
             data.sets[chapterId] = [];
         }
-        displaySets(chapterId);
+        renderSetCards();
     }
 
     // ===== LOAD QUESTIONS FOR A SET =====
@@ -813,74 +935,36 @@ require_once "../utils/api_config.php";
                     time: q.created_at ? (q.created_at.split(' ')[1] || '') : '',
                     setId: setId
                 }));
+                // Also populate the local questions array for CRUD operations
+                questions = result.data.map(q => ({
+                    id: q.id, text: q.question,
+                    options: [q.option_a, q.option_b, q.option_c, q.option_d],
+                    correct: q.correct_answer,
+                    date: q.created_at ? q.created_at.split(' ')[0] : '',
+                    time: q.created_at ? (q.created_at.split(' ')[1] || '') : '',
+                    classId: detailContext.classId || 0,
+                    subjectId: detailContext.subjectId || 0,
+                    chapterId: detailContext.chapterId || 0,
+                    setId: setId,
+                    className: detailContext.className || '',
+                    subjectName: detailContext.subjectName || '',
+                    chapterName: detailContext.chapterName || '',
+                    setName: detailContext.setName || ''
+                }));
             } else {
                 allQuestions = [];
+                questions = [];
             }
         } catch(e) {
             allQuestions = [];
+            questions = [];
         }
         renderDetailQuestions();
     }
 
-    // ===== SEED QUESTIONS (fallback if API unavailable) =====
-    const qs = [
-            // === Class 6 > Mathematics > Ch1 > Set-1 ===
-            { text: 'What is the sum of 125 and 237?', opts: ['352', '362', '372', '382'], correct: 'B', ctx: s(1,1,101,1011), dt: '2026-06-28', tm: '10:15 AM' },
-            { text: 'What is 45 × 12?', opts: ['480', '520', '540', '560'], correct: 'C', ctx: s(1,1,101,1011), dt: '2026-06-28', tm: '10:20 AM' },
-            { text: 'Which of the following is a prime number?', opts: ['12', '15', '17', '21'], correct: 'C', ctx: s(1,1,101,1011), dt: '2026-06-27', tm: '09:30 AM' },
-            { text: 'What is the LCM of 6 and 8?', opts: ['16', '20', '24', '28'], correct: 'C', ctx: s(1,1,101,1011), dt: '2026-06-27', tm: '09:35 AM' },
-            { text: 'A rectangle has length 8 cm and width 5 cm. What is its area?', opts: ['26 cm²', '30 cm²', '40 cm²', '45 cm²'], correct: 'C', ctx: s(1,1,101,1011), dt: '2026-06-26', tm: '02:00 PM' },
-
-            // === Class 6 > Science > Ch1 > Set-1 ===
-            { text: 'Which of the following is a source of energy for plants?', opts: ['Water', 'Sunlight', 'Soil', 'Air'], correct: 'B', ctx: s(1,2,201,2011), dt: '2026-06-29', tm: '11:00 AM' },
-            { text: 'What is the process by which plants make their food called?', opts: ['Respiration', 'Photosynthesis', 'Digestion', 'Transpiration'], correct: 'B', ctx: s(1,2,201,2011), dt: '2026-06-29', tm: '11:05 AM' },
-            { text: 'Which gas do plants absorb from the atmosphere?', opts: ['Oxygen', 'Nitrogen', 'Carbon dioxide', 'Hydrogen'], correct: 'C', ctx: s(1,2,201,2011), dt: '2026-06-28', tm: '03:30 PM' },
-
-            // === Class 6 > English > Ch1 > Set-1 ===
-            { text: 'Choose the correct synonym of "Abundant":', opts: ['Scarce', 'Plentiful', 'Difficult', 'Simple'], correct: 'B', ctx: s(1,3,301,3011), dt: '2026-06-30', tm: '09:00 AM' },
-            { text: 'Identify the noun in the sentence: "She runs quickly."', opts: ['She', 'Runs', 'Quickly', 'None'], correct: 'A', ctx: s(1,3,301,3011), dt: '2026-06-30', tm: '09:05 AM' },
-
-            // === Class 7 > Mathematics > Ch1 > Set-1 ===
-            { text: 'What is (-15) + 28?', opts: ['-13', '12', '13', '43'], correct: 'C', ctx: s(2,4,401,4011), dt: '2026-06-30', tm: '10:00 AM' },
-            { text: 'What is the value of 3² + 4²?', opts: ['12', '21', '25', '35'], correct: 'C', ctx: s(2,4,401,4011), dt: '2026-06-29', tm: '01:00 PM' },
-            { text: 'Which of the following fractions is equivalent to 3/4?', opts: ['6/10', '9/12', '12/20', '15/25'], correct: 'B', ctx: s(2,4,401,4011), dt: '2026-06-29', tm: '01:05 PM' },
-            { text: 'What is 25% of 200?', opts: ['25', '40', '50', '75'], correct: 'C', ctx: s(2,4,401,4011), dt: '2026-06-28', tm: '11:45 AM' },
-            { text: 'The angles of a triangle are 45°, 45°, and x°. Find x.', opts: ['45°', '60°', '90°', '180°'], correct: 'C', ctx: s(2,4,401,4011), dt: '2026-06-28', tm: '11:50 AM' },
-
-            // === Class 7 > Science > Ch1 > Set-1 ===
-            { text: 'What is the SI unit of force?', opts: ['Newton', 'Joule', 'Watt', 'Pascal'], correct: 'A', ctx: s(2,5,501,5011), dt: '2026-07-01', tm: '08:30 AM' },
-            { text: 'Which vitamin is produced by sunlight on the skin?', opts: ['Vitamin A', 'Vitamin B', 'Vitamin C', 'Vitamin D'], correct: 'D', ctx: s(2,5,501,5011), dt: '2026-07-01', tm: '08:35 AM' },
-            { text: 'What is the pH of pure water?', opts: ['5', '6', '7', '8'], correct: 'C', ctx: s(2,5,501,5011), dt: '2026-06-30', tm: '04:00 PM' },
-
-            // === Class 8 > Mathematics > Ch1 > Set-1 ===
-            { text: 'What is the square root of 144?', opts: ['10', '11', '12', '13'], correct: 'C', ctx: s(3,7,701,7011), dt: '2026-07-02', tm: '09:15 AM' },
-            { text: 'If 2x + 5 = 15, what is the value of x?', opts: ['3', '5', '7', '10'], correct: 'B', ctx: s(3,7,701,7011), dt: '2026-07-02', tm: '09:20 AM' },
-            { text: 'What is the volume of a cube with side length 4 cm?', opts: ['48 cm³', '64 cm³', '72 cm³', '96 cm³'], correct: 'B', ctx: s(3,7,701,7011), dt: '2026-07-01', tm: '02:30 PM' },
-        ];
-
-        qs.forEach((q, i) => {
-            questions.push({
-                id: questionIdCounter++,
-                text: q.text,
-                options: q.opts,
-                correct: q.correct,
-                date: q.dt,
-                time: q.tm,
-                classId: q.ctx.classId,
-                subjectId: q.ctx.subjectId,
-                chapterId: q.ctx.chapterId,
-                setId: q.ctx.setId,
-                className: q.ctx.className,
-                subjectName: q.ctx.subjectName,
-                chapterName: q.ctx.chapterName,
-                setName: q.ctx.setName
-            });
-        });
-    }
-
     // ===== INIT =====
     function init() {
-        loadSeedQuestions();
+        loadClasses();
         populateSelect('class');
         setupCascading();
         updateStepIndicator();
@@ -893,7 +977,7 @@ require_once "../utils/api_config.php";
         const sel = getSelect(type);
         if (type === 'class') {
             sel.innerHTML = '<option value="">Select Class</option>';
-            data.classes.forEach(c => sel.innerHTML += `<option value="${c.id}">${c.name}</option>`);
+            data.classes.forEach(c => sel.innerHTML += `<option value="${c.id}">${c.class_name}</option>`);
         } else if (type === 'subject') {
             const classId = parseInt(document.getElementById('classSelect').value);
             sel.innerHTML = '';
@@ -901,7 +985,7 @@ require_once "../utils/api_config.php";
             sel.disabled = false;
             const subs = data.subjects[classId] || [];
             sel.innerHTML = '<option value="">Select Subject</option>';
-            subs.forEach(s => sel.innerHTML += `<option value="${s.id}">${s.name}</option>`);
+            subs.forEach(s => sel.innerHTML += `<option value="${s.id}">${s.subject_name}</option>`);
         } else if (type === 'chapter') {
             const subjectId = parseInt(document.getElementById('subjectSelect').value);
             sel.innerHTML = '';
@@ -909,7 +993,7 @@ require_once "../utils/api_config.php";
             sel.disabled = false;
             const chs = data.chapters[subjectId] || [];
             sel.innerHTML = '<option value="">Select Chapter</option>';
-            chs.forEach(ch => sel.innerHTML += `<option value="${ch.id}">${ch.name}</option>`);
+            chs.forEach(ch => sel.innerHTML += `<option value="${ch.id}">${ch.chapter_name}</option>`);
         } else if (type === 'set') {
             const chapterId = parseInt(document.getElementById('chapterSelect').value);
             sel.innerHTML = '';
@@ -962,21 +1046,39 @@ require_once "../utils/api_config.php";
     // ===== CASCADING =====
     function setupCascading() {
         document.getElementById('classSelect').addEventListener('change', function() {
+            const classId = parseInt(this.value);
             document.getElementById('subjectSelect').value = '';
             document.getElementById('chapterSelect').value = '';
-            populateSelect('subject'); populateSelect('chapter');
-            closeSetDetail();
-            updateStepIndicator(); renderSetCards();
-        });
-        document.getElementById('subjectSelect').addEventListener('change', function() {
-            document.getElementById('chapterSelect').value = '';
+            if (classId) {
+                loadSubjects(classId);
+            } else {
+                populateSelect('subject');
+            }
             populateSelect('chapter');
             closeSetDetail();
             updateStepIndicator(); renderSetCards();
         });
-        document.getElementById('chapterSelect').addEventListener('change', function() {
+        document.getElementById('subjectSelect').addEventListener('change', function() {
+            const subjectId = parseInt(this.value);
+            document.getElementById('chapterSelect').value = '';
+            if (subjectId) {
+                loadChapters(subjectId);
+            } else {
+                populateSelect('chapter');
+            }
             closeSetDetail();
             updateStepIndicator(); renderSetCards();
+        });
+        document.getElementById('chapterSelect').addEventListener('change', function() {
+            const chapterId = parseInt(this.value);
+            if (chapterId) {
+                renderSetCards();
+                loadSets(chapterId);
+            } else {
+                renderSetCards();
+            }
+            closeSetDetail();
+            updateStepIndicator();
         });
     }
 
@@ -1014,7 +1116,7 @@ require_once "../utils/api_config.php";
     }
 
     // ===== SET DETAIL =====
-    let detailContext = { classId: null, subjectId: null, chapterId: null, setId: null };
+    detailContext = { classId: null, subjectId: null, chapterId: null, setId: null };
 
     function openSetDetail(setId) {
         const classId = parseInt(document.getElementById('classSelect').value);
@@ -1102,7 +1204,7 @@ require_once "../utils/api_config.php";
     }
 
     // ===== SAVE / EDIT / DELETE QUESTIONS IN DETAIL =====
-    function saveDetailQuestion() {
+    async function saveDetailQuestion() {
         const text = document.getElementById('detailQuestionText').value.trim();
         const optA = document.getElementById('detailOptA').value.trim();
         const optB = document.getElementById('detailOptB').value.trim();
@@ -1114,34 +1216,53 @@ require_once "../utils/api_config.php";
             alert('Please fill in all fields and select the correct answer.'); return;
         }
 
-        const today = new Date();
-        const dateStr = today.toISOString().split('T')[0];
-        const timeStr = today.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const { setId } = detailContext;
+        if (!setId) { alert('No set selected.'); return; }
 
-        if (editingQuestionId) {
-            const q = questions.find(q => q.id === editingQuestionId);
-            if (q) { q.text = text; q.options = [optA, optB, optC, optD]; q.correct = correct; }
-            editingQuestionId = null;
-            document.getElementById('detailSaveText').textContent = 'Add Question';
-            document.getElementById('detailSaveBtn').className = 'btn btn-primary';
-        } else {
-            const { classId, subjectId, chapterId, setId } = detailContext;
-            const className = getClassName(classId);
-            const subjectName = getSubjectName(classId, subjectId);
-            const chapterName = getChapterName(subjectId, chapterId);
-            const setName = getSetName(chapterId, setId);
-            questions.push({
-                id: questionIdCounter++, text, options: [optA, optB, optC, optD], correct,
-                date: dateStr, time: timeStr,
-                classId, subjectId, chapterId, setId,
-                className, subjectName, chapterName, setName
-            });
+        try {
+            let result;
+            if (editingQuestionId) {
+                // UPDATE existing question
+                result = await apiPost('update-all-mock-questions.php', {
+                    question_id: editingQuestionId,
+                    set_id: setId,
+                    question: text,
+                    option_a: optA,
+                    option_b: optB,
+                    option_c: optC,
+                    option_d: optD,
+                    correct_answer: correct,
+                    explanation: ''
+                });
+            } else {
+                // ADD new question
+                result = await apiPost('all-mock-test-questions.php', {
+                    set_id: setId,
+                    question: text,
+                    option_a: optA,
+                    option_b: optB,
+                    option_c: optC,
+                    option_d: optD,
+                    correct_answer: correct,
+                    explanation: ''
+                });
+            }
+
+            if (result.status) {
+                alert(result.message || 'Success!');
+                editingQuestionId = null;
+                document.getElementById('detailSaveText').textContent = 'Add Question';
+                document.getElementById('detailSaveBtn').className = 'btn btn-primary';
+                clearDetailForm();
+                await loadQuestionsForSet(setId);
+                renderSetCards();
+                renderAllQuestionsByDate();
+            } else {
+                alert(result.message || 'Operation failed.');
+            }
+        } catch(e) {
+            alert('Network error: ' + e.message);
         }
-
-        clearDetailForm();
-        renderDetailTable();
-        renderAllQuestionsByDate();
-        renderSetCards();
     }
 
     function editDetailQuestion(qId) {
@@ -1160,13 +1281,22 @@ require_once "../utils/api_config.php";
         document.getElementById('detailQuestionFormCard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    function deleteDetailQuestion(qId) {
+    async function deleteDetailQuestion(qId) {
         if (!confirm('Delete this question?')) return;
-        questions = questions.filter(q => q.id !== qId);
-        renderDetailTable();
-        renderAllQuestionsByDate();
-        renderSetCards();
-        if (editingQuestionId === qId) { editingQuestionId = null; clearDetailForm(); }
+        try {
+            const result = await apiPost('delete-all-mock-test.php', { question_id: qId });
+            if (result.status) {
+                alert(result.message || 'Deleted!');
+                questions = questions.filter(q => q.id !== qId);
+                if (editingQuestionId === qId) { editingQuestionId = null; clearDetailForm(); }
+                if (detailContext.setId) await loadQuestionsForSet(detailContext.setId);
+                renderSetCards();
+            } else {
+                alert(result.message || 'Delete failed.');
+            }
+        } catch(e) {
+            alert('Network error: ' + e.message);
+        }
     }
 
     function clearDetailForm() {
@@ -1208,22 +1338,22 @@ require_once "../utils/api_config.php";
         if (!name) { alert('Please enter a ' + type + ' name.'); return; }
 
         if (type === 'class') {
-            if (data.classes.some(c => c.name.toLowerCase() === name.toLowerCase())) { alert('This class already exists.'); return; }
-            const id = nextClassId++; data.classes.push({ id, name }); data.subjects[id] = [];
+            if (data.classes.some(c => c.class_name.toLowerCase() === name.toLowerCase())) { alert('This class already exists.'); return; }
+            const id = nextClassId++; data.classes.push({ id, class_name: name }); data.subjects[id] = [];
             hideAddInput('class'); populateSelect('class');
             document.getElementById('classSelect').value = id; document.getElementById('classSelect').dispatchEvent(new Event('change'));
         } else if (type === 'subject') {
             const classId = parseInt(document.getElementById('classSelect').value); if (!classId) { alert('Please select a class first.'); return; }
             const subs = data.subjects[classId] || [];
-            if (subs.some(s => s.name.toLowerCase() === name.toLowerCase())) { alert('This subject already exists.'); return; }
-            const id = nextSubjectId++; subs.push({ id, name }); data.subjects[classId] = subs; data.chapters[id] = [];
+            if (subs.some(s => s.subject_name.toLowerCase() === name.toLowerCase())) { alert('This subject already exists.'); return; }
+            const id = nextSubjectId++; subs.push({ id, subject_name: name }); data.subjects[classId] = subs; data.chapters[id] = [];
             hideAddInput('subject'); populateSelect('subject');
             document.getElementById('subjectSelect').value = id; document.getElementById('subjectSelect').dispatchEvent(new Event('change'));
         } else if (type === 'chapter') {
             const subjectId = parseInt(document.getElementById('subjectSelect').value); if (!subjectId) { alert('Please select a subject first.'); return; }
             const chs = data.chapters[subjectId] || [];
-            if (chs.some(ch => ch.name.toLowerCase() === name.toLowerCase())) { alert('This chapter already exists.'); return; }
-            const id = nextChapterId++; chs.push({ id, name }); data.chapters[subjectId] = chs; data.sets[id] = [];
+            if (chs.some(ch => ch.chapter_name.toLowerCase() === name.toLowerCase())) { alert('This chapter already exists.'); return; }
+            const id = nextChapterId++; chs.push({ id, chapter_name: name }); data.chapters[subjectId] = chs; data.sets[id] = [];
             hideAddInput('chapter'); populateSelect('chapter');
             document.getElementById('chapterSelect').value = id; document.getElementById('chapterSelect').dispatchEvent(new Event('change'));
         } else if (type === 'set') {
@@ -1236,10 +1366,7 @@ require_once "../utils/api_config.php";
         }
     }
 
-    // ===== HELPERS =====
-    function getClassName(id) { const c = data.classes.find(x => x.id === id); return c ? c.name : ''; }
-    function getSubjectName(classId, subjectId) { const s = (data.subjects[classId] || []).find(x => x.id === subjectId); return s ? s.name : ''; }
-    function getChapterName(subjectId, chapterId) { const c = (data.chapters[subjectId] || []).find(x => x.id === chapterId); return c ? c.name : ''; }
+    // ===== HELPERS =====        function getClassName(id) { const c = data.classes.find(x => x.id === id); return c ? c.class_name : ''; }        function getSubjectName(classId, subjectId) { const s = (data.subjects[classId] || []).find(x => x.id === subjectId); return s ? s.subject_name : ''; }        function getChapterName(subjectId, chapterId) { const c = (data.chapters[subjectId] || []).find(x => x.id === chapterId); return c ? c.chapter_name : ''; }
     function getSetName(chapterId, setId) { const s = (data.sets[chapterId] || []).find(x => x.id === setId); return s ? s.name : ''; }
     function formatDate(dateStr) {
         const d = new Date(dateStr + 'T00:00:00');
@@ -1342,13 +1469,24 @@ require_once "../utils/api_config.php";
         document.getElementById('detailSaveBtn').className = 'btn btn-warning';
     }
 
-    function deleteAllQuestion(qId) {
+    async function deleteAllQuestion(qId) {
         if (!confirm('Delete this question?')) return;
-        questions = questions.filter(q => q.id !== qId);
-        renderAllQuestionsByDate();
-        renderSetCards();
-        if (selectedSetId) renderDetailTable();
-        if (editingQuestionId === qId) { editingQuestionId = null; clearDetailForm(); }
+        try {
+            const result = await apiPost('delete-all-mock-test.php', { question_id: qId });
+            if (result.status) {
+                alert(result.message || 'Deleted!');
+                questions = questions.filter(q => q.id !== qId);
+                allQuestions = allQuestions.filter(q => q.id !== qId);
+                renderAllQuestionsByDate();
+                renderSetCards();
+                if (selectedSetId) renderDetailTable();
+                if (editingQuestionId === qId) { editingQuestionId = null; clearDetailForm(); }
+            } else {
+                alert(result.message || 'Delete failed.');
+            }
+        } catch(e) {
+            alert('Network error: ' + e.message);
+        }
     }
 
     // ===== NAVIGATE TO SET FROM ALL QUESTIONS =====
@@ -1381,3 +1519,4 @@ require_once "../utils/api_config.php";
 </script>
 </body>
 </html>
+
