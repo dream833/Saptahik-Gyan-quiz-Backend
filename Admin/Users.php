@@ -1,37 +1,11 @@
 <?php
 session_start();
-require_once "../utils/api_config.php";
-require_once "../utils/db.php";
-
-$users = [];
-$dbError = '';
-
-// Fetch all users with class name via JOIN (no search filtering - done client-side)
-try {
-    $stmt = $pdo->prepare("
-        SELECT
-            u.id,
-            u.full_name,
-            u.email,
-            u.mobile,
-            u.class_grade,
-            c.class_name,
-            u.about_me,
-            u.created_at
-        FROM users u
-        LEFT JOIN classes c ON u.class_grade = c.id
-        ORDER BY u.created_at DESC
-    ");
-    $stmt->execute();
-    $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-    $dbError = 'Unable to load users. Please try again later.';
+if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
+    header('Location: login.php');
+    exit;
 }
+require_once "../utils/api_config.php";
 ?>
-
-<?php if (!empty($dbError)): ?>
-<script>console.warn('<?= addslashes($dbError) ?>');</script>
-<?php endif; ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -430,6 +404,11 @@ try {
         .sidebar-nav::-webkit-scrollbar { width: 4px; }
         .sidebar-nav::-webkit-scrollbar-track { background: transparent; }
         .sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -454,7 +433,7 @@ try {
             <a href="allmocktestresult.php"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg></span>All Mock Test Result</a>
         </nav>
         <div class="sidebar-footer">
-            <a href="login.php" onclick="return confirm('Are you sure you want to logout?')">
+            <a href="login.php?logout=1" onclick="return confirm('Are you sure you want to logout?')">
                 <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg></span>Logout
             </a>
         </div>
@@ -498,7 +477,7 @@ try {
 
             <!-- User Count -->
             <div class="user-count" id="userCount">
-                Showing <strong id="countDisplay"><?= count($users) ?></strong> user<?= count($users) !== 1 ? 's' : '' ?>
+                Showing <strong id="countDisplay">0</strong> users
             </div>
 
             <!-- Table -->
@@ -515,46 +494,7 @@ try {
                             </tr>
                         </thead>
                         <tbody id="userTableBody">
-                            <?php if (count($users) > 0): ?>
-                                <?php foreach ($users as $user): ?>
-                                    <tr class="user-row" data-name="<?= htmlspecialchars(strtolower($user['full_name'] ?? '')) ?>" data-email="<?= htmlspecialchars(strtolower($user['email'] ?? '')) ?>" data-phone="<?= htmlspecialchars($user['mobile'] ?? '') ?>" data-class="<?= htmlspecialchars(strtolower($user['class_name'] ?? '')) ?>" data-bio="<?= htmlspecialchars(strtolower($user['about_me'] ?? '')) ?>">
-                                        <td>
-                                            <div class="user-name">
-                                                <div class="user-avatar"><?= strtoupper(substr($user['full_name'] ?? 'U', 0, 1)) ?></div>
-                                                <span class="name-text" onclick="viewUserDetails(<?= $user['id'] ?>)" style="cursor:pointer;color:#6366f1;"><?= htmlspecialchars($user['full_name'] ?? 'Unknown') ?></span>
-                                            </div>
-                                        </td>
-                                        <td class="email-cell"><?= htmlspecialchars($user['email'] ?? '-') ?></td>
-                                        <td class="phone-cell"><?= htmlspecialchars($user['mobile'] ?? '-') ?></td>
-                                        <td>
-                                            <?php if (!empty($user['class_name'])): ?>
-                                                <span class="class-badge"><?= htmlspecialchars($user['class_name']) ?></span>
-                                            <?php else: ?>
-                                                <span style="color:#9ca3af;font-size:13px;">—</span>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td class="bio-cell">
-                                            <?php if (!empty($user['about_me'])): ?>
-                                                <div class="bio-text"><?= htmlspecialchars($user['about_me']) ?></div>
-                                            <?php else: ?>
-                                                <span style="color:#9ca3af;font-size:13px;">—</span>
-                                            <?php endif; ?>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            <?php else: ?>
-                                <tr class="user-row" id="emptyRow">
-                                    <td colspan="5">
-                                        <div class="no-results visible" id="noResults">
-                                            <div class="no-icon">
-                                                <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-                                            </div>
-                                            <h3>No users found</h3>
-                                            <p>No users have registered yet.</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                            <?php endif; ?>
+                            <!-- Rows rendered dynamically by JS -->
                         </tbody>
                     </table>
                 </div>
@@ -562,6 +502,7 @@ try {
         </div>
     </main>
 
+    <script src="js/api.js"></script>
     <script>
         // Sidebar toggle
         const sidebar = document.getElementById('sidebar');
@@ -576,20 +517,107 @@ try {
         menuToggle.addEventListener('click', toggleSidebar);
         sidebarOverlay.addEventListener('click', toggleSidebar);
 
-        // ===== CLIENT-SIDE SEARCH =====
-        const searchInput = document.getElementById('searchInput');
-        const clearBtn = document.getElementById('clearBtn');
-        const rows = document.querySelectorAll('.user-row');
-        const countDisplay = document.getElementById('countDisplay');
-        const userCount = document.getElementById('userCount');
-        const noResults = document.getElementById('noResults');
+        // Client-side auth check (fallback)
+        if (!sessionStorage.getItem('admin_logged_in')) {
+            window.location.href = 'login.php?logout=1';
+        }
 
-        function filterUsers() {
+        // ===== API CONFIG =====
+        const ADMIN_API = '<?= ADMIN_API_URL ?>';
+
+        // ===== STATE =====
+        let allUsers = [];
+
+        // ===== HTML ESCAPE HELPER =====
+        function esc(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // ===== FETCH ALL USERS FROM API =====
+        async function fetchUsers() {
+            const tbody = document.getElementById('userTableBody');
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:40px;color:#94a3b8;"><div style="display:flex;align-items:center;justify-content:center;gap:8px;"><div class="loading-spinner" style="width:20px;height:20px;border:2px solid #e2e8f0;border-top-color:#6366f1;border-radius:50%;animation:spin 0.6s linear infinite;"></div> Loading users...</div></td></tr>';
+
+            try {
+                const res = await fetch(ADMIN_API + 'fetch-user.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                const result = await res.json();
+                if (result.status && result.data) {
+                    allUsers = result.data;
+                    renderUsers(allUsers);
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="5"><div class="no-results visible" id="noResults"><div class="no-icon"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5z"/></svg></div><h3>No users found</h3><p>No users have registered yet.</p></div></td></tr>';
+                }
+            } catch (e) {
+                tbody.innerHTML = '<tr><td colspan="5"><div class="no-results visible" id="noResults"><div class="no-icon"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></div><h3>Connection error</h3><p>Could not load users. Please try again later.</p></div></td></tr>';
+            }
+        }
+
+        // ===== RENDER USERS TABLE =====
+        function renderUsers(users) {
+            const tbody = document.getElementById('userTableBody');
+            const countDisplay = document.getElementById('countDisplay');
+            const userCount = document.getElementById('userCount');
+
+            if (!users || users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5"><div class="no-results visible" id="noResults"><div class="no-icon"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5z"/></svg></div><h3>No users found</h3><p>No users have registered yet.</p></div></td></tr>';
+                countDisplay.textContent = '0';
+                userCount.innerHTML = 'Showing <strong>0</strong> users';
+                return;
+            }
+
+            let html = '';
+            users.forEach(u => {
+                const safeName = esc(u.full_name || 'Unknown');
+                const safeEmail = esc(u.email || '-');
+                const safePhone = esc(u.mobile || '-');
+                const safeClass = esc(u.class_name || '');
+                const safeBio = esc(u.about_me || '');
+                const initial = (u.full_name || 'U').charAt(0).toUpperCase();
+
+                html += `
+                    <tr class="user-row" data-name="${(u.full_name || '').toLowerCase()}" data-email="${(u.email || '').toLowerCase()}" data-phone="${u.mobile || ''}" data-class="${(u.class_name || '').toLowerCase()}" data-bio="${(u.about_me || '').toLowerCase()}">
+                        <td>
+                            <div class="user-name">
+                                <div class="user-avatar">${initial}</div>
+                                <span class="name-text" onclick="viewUserDetails(${u.id})" style="cursor:pointer;color:#6366f1;">${safeName}</span>
+                            </div>
+                        </td>
+                        <td class="email-cell">${safeEmail}</td>
+                        <td class="phone-cell">${safePhone}</td>
+                        <td>
+                            ${safeClass ? `<span class="class-badge">${safeClass}</span>` : '<span style="color:#9ca3af;font-size:13px;">—</span>'}
+                        </td>
+                        <td class="bio-cell">
+                            ${safeBio ? `<div class="bio-text">${safeBio}</div>` : '<span style="color:#9ca3af;font-size:13px;">—</span>'}
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+            countDisplay.textContent = users.length;
+            userCount.innerHTML = `Showing <strong>${users.length}</strong> user${users.length !== 1 ? 's' : ''}`;
+
+            // Search is already bound once at page load
+        }
+
+        // ===== CLIENT-SIDE SEARCH =====
+        function filterUserRows() {
+            const searchInput = document.getElementById('searchInput');
+            const clearBtn = document.getElementById('clearBtn');
+            const rows = document.querySelectorAll('.user-row');
+            const countDisplay = document.getElementById('countDisplay');
+            const userCount = document.getElementById('userCount');
             const query = searchInput.value.trim().toLowerCase();
             let visibleCount = 0;
 
             rows.forEach(row => {
-                if (row.id === 'emptyRow') return; // skip the empty-state row
                 const name = row.dataset.name || '';
                 const email = row.dataset.email || '';
                 const phone = row.dataset.phone || '';
@@ -606,42 +634,21 @@ try {
                 }
             });
 
-            // Update count
             countDisplay.textContent = visibleCount;
-            userCount.innerHTML = `Showing <strong>${visibleCount}</strong> user${visibleCount !== 1 ? 's' : ''}${query ? ` for "<strong>${searchInput.value}</strong>"` : ''}`;
+            userCount.innerHTML = `Showing <strong>${visibleCount}</strong> user${visibleCount !== 1 ? 's' : ''}${query ? ` for &quot;<strong>${esc(searchInput.value)}</strong>&quot;` : ''}`;
 
-            // Show/hide no-results message
-            if (noResults) {
-                if (visibleCount === 0 && rows.length > 1) {
-                    noResults.classList.add('visible');
-                } else {
-                    noResults.classList.remove('visible');
-                }
-            }
-
-            // Show/hide clear button
             clearBtn.classList.toggle('visible', query !== '');
         }
 
-        searchInput.addEventListener('input', filterUsers);
-
-        clearBtn.addEventListener('click', function() {
-            searchInput.value = '';
-            filterUsers();
-            searchInput.focus();
-        });
-
-        // ===== API Integration: View User Details =====
-        const API_BASE = '<?= ADMIN_API_URL ?>';
-
-        function viewUserDetails(userId) {
-            fetch(API_BASE + 'fetch-user.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: userId })
-            })
-            .then(res => res.json())
-            .then(result => {
+        // ===== VIEW USER DETAILS (via API) =====
+        async function viewUserDetails(userId) {
+            try {
+                const res = await fetch(ADMIN_API + 'fetch-user.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId })
+                });
+                const result = await res.json();
                 if (result.status && result.data) {
                     const u = result.data;
                     const info = [
@@ -655,13 +662,23 @@ try {
                     ].join('\n');
                     alert(info);
                 } else {
-                    alert('Error: ' + (result.message || 'Could not load user details.'));
+                    api.showToast(result.message || 'Could not load user details.', 'error');
                 }
-            })
-            .catch(err => {
-                alert('Network error. Could not load user details.');
-            });
+            } catch (err) {
+                api.showToast('Network error. Could not load user details.', 'error');
+            }
         }
+
+        // ===== SETUP SEARCH EVENTS (one-time, outside render loop) =====
+        document.getElementById('searchInput').addEventListener('input', filterUserRows);
+        document.getElementById('clearBtn').addEventListener('click', function() {
+            document.getElementById('searchInput').value = '';
+            filterUserRows();
+            document.getElementById('searchInput').focus();
+        });
+
+        // ===== INIT =====
+        fetchUsers();
     </script>
 </body>
 </html>

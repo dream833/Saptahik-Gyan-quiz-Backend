@@ -1,3 +1,11 @@
+<?php
+session_start();
+if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
+    header('Location: login.php');
+    exit;
+}
+require_once "../utils/api_config.php";
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -500,7 +508,7 @@
             <a href="allmocktestresult.php"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg></span>All Mock Test Result</a>
         </nav>
         <div class="sidebar-footer">
-            <a href="login.php" onclick="return confirm('Are you sure you want to logout?')">
+            <a href="login.php?logout=1" onclick="return confirm('Are you sure you want to logout?')">
                 <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg></span>Logout</a>
         </div>
     </aside>
@@ -582,6 +590,14 @@
                     <div class="form-group">
                         <label>Duration (minutes)</label>
                         <input type="number" id="testDuration" placeholder="e.g. 30" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label>Start Time <span class="required">*</span></label>
+                        <input type="time" id="testStartTime" value="09:00">
+                    </div>
+                    <div class="form-group">
+                        <label>End Time <span class="required">*</span></label>
+                        <input type="time" id="testEndTime" value="10:00">
                     </div>
                     <div class="form-group full-width">
                         <label>Description</label>
@@ -790,6 +806,7 @@
         </div>
     </div>
 
+    <script src="js/api.js"></script>
     <script>
         // Sidebar toggle
         const sidebar = document.getElementById('sidebar');
@@ -799,90 +816,51 @@
         menuToggle.addEventListener('click', toggleSidebar);
         sidebarOverlay.addEventListener('click', toggleSidebar);
 
-        // ===== SAMPLE DATA =====
-        const classesData = [
-            { id: 1, name: 'Class 6' },
-            { id: 2, name: 'Class 7' },
-            { id: 3, name: 'Class 8' },
-            { id: 4, name: 'Class 9' },
-            { id: 5, name: 'Class 10' }
-        ];
-
-        const subjectsData = {
-            1: [
-                { id: 1, name: 'Mathematics' },
-                { id: 2, name: 'Science' },
-                { id: 3, name: 'English' },
-                { id: 4, name: 'Social Studies' },
-                { id: 5, name: 'Hindi' }
-            ],
-            2: [
-                { id: 6, name: 'Mathematics' },
-                { id: 7, name: 'Science' },
-                { id: 8, name: 'English' },
-                { id: 9, name: 'Social Studies' },
-                { id: 10, name: 'Sanskrit' }
-            ],
-            3: [
-                { id: 11, name: 'Mathematics' },
-                { id: 12, name: 'Physics' },
-                { id: 13, name: 'Chemistry' },
-                { id: 14, name: 'Biology' },
-                { id: 15, name: 'English' }
-            ],
-            4: [
-                { id: 16, name: 'Mathematics' },
-                { id: 17, name: 'Physics' },
-                { id: 18, name: 'Chemistry' },
-                { id: 19, name: 'Biology' },
-                { id: 20, name: 'English' }
-            ],
-            5: [
-                { id: 21, name: 'Mathematics' },
-                { id: 22, name: 'Physics' },
-                { id: 23, name: 'Chemistry' },
-                { id: 24, name: 'Biology' },
-                { id: 25, name: 'English' }
-            ]
-        };
-
-        function getSubjectName(classId, subjectId) {
-            const subs = subjectsData[classId] || [];
-            const sub = subs.find(s => s.id === subjectId);
-            return sub ? sub.name : 'Unknown';
+        // Client-side auth check
+        if (!sessionStorage.getItem('admin_logged_in')) {
+            window.location.href = 'login.php?logout=1';
         }
 
-        function getClassName(classId) {
-            const cls = classesData.find(c => c.id === classId);
-            return cls ? cls.name : 'Unknown';
-        }
+        // ===== API CONFIG =====
+        const ADMIN_API = '<?= ADMIN_API_URL ?>';
+        const APP_API = '<?= APP_API_URL ?>';
 
         // ===== STATE =====
-        let mockTests = [];
-        let testIdCounter = 1;
-        let questionIdCounter = 1;
-
-        // Editing state
+        let editingMockTestId = null;
         let editingTestId = null;       // which test we're adding question to
-        let editingQuestionId = null;   // which question we're editing (null = new)
+        let editingQuestionId = null;   // which question we're editing
 
-        // ===== INIT =====
-        function init() {
-            populateClasses();
-            setupClassSubjectBinding();
+        // ===== API HELPERS =====
+        async function apiPost(endpoint, data) {
+            try {
+                const res = await fetch(ADMIN_API + endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                return await res.json();
+            } catch(e) {
+                return { status: false, message: 'Network error: ' + e.message };
+            }
         }
 
-        function populateClasses() {
-            const sel = document.getElementById('classSelect');
-            const currentVal = sel.value;
-            sel.innerHTML = '<option value="">Select Class</option>';
-            classesData.forEach(c => {
-                sel.innerHTML += `<option value="${c.id}">${c.name}</option>`;
-            });
-            if (currentVal) sel.value = currentVal;
+        // ===== LOAD CLASSES =====
+        async function loadClasses() {
+            try {
+                const res = await fetch(APP_API + 'get-class.php');
+                const result = await res.json();
+                if (result.status) {
+                    const sel = document.getElementById('classSelect');
+                    sel.innerHTML = '<option value="">Select Class</option>';
+                    (result.data || []).forEach(c => {
+                        sel.innerHTML += `<option value="${c.id}">${c.class_name}</option>`;
+                    });
+                }
+            } catch(e) { console.warn('Failed to load classes:', e); }
         }
 
-        function populateSubjects(classId) {
+        // ===== LOAD SUBJECTS =====
+        async function loadSubjects(classId) {
             const subjectSel = document.getElementById('subjectSelect');
             subjectSel.innerHTML = '';
             if (!classId) {
@@ -891,145 +869,153 @@
                 return;
             }
             subjectSel.disabled = false;
-            const subs = subjectsData[classId] || [];
-            subjectSel.innerHTML = '<option value="">Select Subject</option>';
-            subs.forEach(s => {
-                subjectSel.innerHTML += `<option value="${s.id}">${s.name}</option>`;
-            });
+            subjectSel.innerHTML = '<option value="">Loading...</option>';
+            try {
+                const res = await fetch(APP_API + 'get-subject.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ class_id: classId })
+                });
+                const result = await res.json();
+                subjectSel.innerHTML = '<option value="">Select Subject</option>';
+                if (result.status) {
+                    (result.data || []).forEach(s => {
+                        subjectSel.innerHTML += `<option value="${s.id}">${s.subject_name}</option>`;
+                    });
+                }
+            } catch(e) {
+                subjectSel.innerHTML = '<option value="">Select Subject</option>';
+            }
         }
 
-        function setupClassSubjectBinding() {
-            const classSel = document.getElementById('classSelect');
-            const subjectSel = document.getElementById('subjectSelect');
-            classSel.addEventListener('change', function() {
-                const classId = parseInt(this.value);
-                populateSubjects(classId);
-            });
-        }
+        // ===== CLASS CHANGE BINDING =====
+        document.getElementById('classSelect').addEventListener('change', function() {
+            const classId = parseInt(this.value);
+            loadSubjects(classId);
+        });
 
-        // ===== ADD CLASS =====
-        let classIdCounter = 6;
-        let subjectIdCounter = 26;
-
+        // ===== ADD CLASS (via API) =====
         function showAddClass() {
             document.getElementById('addClassRow').style.display = 'block';
             document.getElementById('newClassName').focus();
         }
-
         function hideAddClass() {
             document.getElementById('addClassRow').style.display = 'none';
             document.getElementById('newClassName').value = '';
         }
-
-        function addNewClass() {
+        async function addNewClass() {
             const name = document.getElementById('newClassName').value.trim();
-            if (!name) { alert('Please enter a class name.'); return; }
-
-            // Check if class already exists
-            const exists = classesData.some(c => c.name.toLowerCase() === name.toLowerCase());
-            if (exists) { alert('This class already exists.'); return; }
-
-            const newId = classIdCounter++;
-            classesData.push({ id: newId, name });
-            subjectsData[newId] = [];
-
-            hideAddClass();
-            populateClasses();
-
-            // Auto-select the new class
-            document.getElementById('classSelect').value = newId;
-            populateSubjects(newId);
+            if (!name) { api.showToast('Please enter a class name.', 'error'); return; }
+            const result = await apiPost('add-class.php', { class_name: name });
+            if (result.status) {
+                api.showToast('Class added successfully!', 'success');
+                hideAddClass();
+                await loadClasses();
+                // Auto-select new class
+                const sel = document.getElementById('classSelect');
+                for (let opt of sel.options) {
+                    if (opt.text === name) { sel.value = opt.value; break; }
+                }
+                loadSubjects(parseInt(sel.value));
+            } else {
+                api.showToast(result.message || 'Failed to add class.', 'error');
+            }
         }
 
-        // ===== ADD SUBJECT =====
+        // ===== ADD SUBJECT (via API) =====
         function showAddSubject() {
             const classId = parseInt(document.getElementById('classSelect').value);
-            if (!classId) { alert('Please select a class first.'); return; }
+            if (!classId) { api.showToast('Please select a class first.', 'error'); return; }
             document.getElementById('addSubjectRow').style.display = 'block';
             document.getElementById('newSubjectName').focus();
         }
-
         function hideAddSubject() {
             document.getElementById('addSubjectRow').style.display = 'none';
             document.getElementById('newSubjectName').value = '';
         }
-
-        function addNewSubject() {
+        async function addNewSubject() {
             const classId = parseInt(document.getElementById('classSelect').value);
-            if (!classId) { alert('Please select a class first.'); return; }
-
+            if (!classId) { api.showToast('Please select a class first.', 'error'); return; }
             const name = document.getElementById('newSubjectName').value.trim();
-            if (!name) { alert('Please enter a subject name.'); return; }
-
-            const subs = subjectsData[classId] || [];
-            const exists = subs.some(s => s.name.toLowerCase() === name.toLowerCase());
-            if (exists) { alert('This subject already exists for the selected class.'); return; }
-
-            const newId = subjectIdCounter++;
-            subs.push({ id: newId, name });
-
-            hideAddSubject();
-            populateSubjects(classId);
-
-            // Auto-select the new subject
-            document.getElementById('subjectSelect').value = newId;
+            if (!name) { api.showToast('Please enter a subject name.', 'error'); return; }
+            const result = await apiPost('add-subject.php', { class_id: classId, subject_name: name });
+            if (result.status) {
+                api.showToast('Subject added successfully!', 'success');
+                hideAddSubject();
+                await loadSubjects(classId);
+                // Auto-select new subject
+                const sel = document.getElementById('subjectSelect');
+                for (let opt of sel.options) {
+                    if (opt.text === name) { sel.value = opt.value; break; }
+                }
+            } else {
+                api.showToast(result.message || 'Failed to add subject.', 'error');
+            }
         }
 
-        // ===== STATE for editing =====
-        let editingMockTestId = null;  // null = adding new, number = editing existing
-
-        // ===== ADD / UPDATE MOCK TEST =====
-        function addMockTest() {
+        // ===== ADD / UPDATE MOCK TEST (via API) =====
+        async function addMockTest() {
             const classId = parseInt(document.getElementById('classSelect').value);
             const subjectId = parseInt(document.getElementById('subjectSelect').value);
             const testName = document.getElementById('testName').value.trim();
             const testDesc = document.getElementById('testDesc').value.trim();
-            const duration = document.getElementById('testDuration').value.trim();
+            const duration = parseInt(document.getElementById('testDuration').value) || 0;
+            const testDate = document.getElementById('testDate').value;
+            const startTime = document.getElementById('testStartTime').value;
+            const endTime = document.getElementById('testEndTime').value;
 
-            if (!classId || !subjectId || !testName) {
-                alert('Please select a class, subject, and enter a test name.');
+            if (!classId || !subjectId || !testName || !testDate || !startTime || !endTime || duration <= 0) {
+                api.showToast('Please fill all required fields (Class, Subject, Name, Date, Start/End Time, Duration).', 'error');
                 return;
             }
 
-            const dateInput = document.getElementById('testDate');
-            const testDate = dateInput.value || new Date().toISOString().split('T')[0];
+            const btn = document.getElementById('submitTestBtn');
+            btn.disabled = true;
+            btn.textContent = 'Saving...';
 
             if (editingMockTestId) {
-                // UPDATE existing test
-                const test = mockTests.find(t => t.id === editingMockTestId);
-                if (test) {
-                    test.date = testDate;
-                    test.classId = classId;
-                    test.subjectId = subjectId;
-                    test.className = getClassName(classId);
-                    test.subjectName = getSubjectName(classId, subjectId);
-                    test.name = testName;
-                    test.description = testDesc || '';
-                    test.duration = duration || '—';
+                const result = await apiPost('update-mock-test.php', {
+                    mock_test_id: editingMockTestId,
+                    class_id: classId,
+                    subject_id: subjectId,
+                    test_name: testName,
+                    description: testDesc,
+                    test_date: testDate,
+                    start_time: startTime,
+                    end_time: endTime,
+                    duration_minutes: duration
+                });
+                if (result.status) {
+                    api.showToast('Mock test updated!', 'success');
+                } else {
+                    api.showToast(result.message || 'Failed to update test.', 'error');
                 }
                 editingMockTestId = null;
                 document.getElementById('submitBtnText').textContent = 'Add Mock Test';
                 document.getElementById('submitTestBtn').className = 'btn btn-primary';
             } else {
-                // CREATE new test
-                const test = {
-                    id: testIdCounter++,
-                    date: testDate,
-                    classId,
-                    subjectId,
-                    className: getClassName(classId),
-                    subjectName: getSubjectName(classId, subjectId),
-                    name: testName,
-                    description: testDesc || '',
-                    duration: duration || '—',
-                    questions: []
-                };
-                mockTests.push(test);
+                const result = await apiPost('add-mocktest.php', {
+                    class_id: classId,
+                    subject_id: subjectId,
+                    test_name: testName,
+                    description: testDesc,
+                    test_date: testDate,
+                    start_time: startTime,
+                    end_time: endTime,
+                    duration_minutes: duration
+                });
+                if (result.status) {
+                    api.showToast('Mock test added!', 'success');
+                } else {
+                    api.showToast(result.message || 'Failed to add test.', 'error');
+                }
             }
 
+            btn.disabled = false;
+            btn.textContent = '';
+            document.getElementById('submitBtnText').textContent = editingMockTestId ? 'Update Test' : 'Add Mock Test';
             resetForm();
-            renderTable();
-            renderUpcoming();
+            loadAllTests();
         }
 
         function resetForm() {
@@ -1062,71 +1048,169 @@
         }
 
         // ===== EDIT MOCK TEST (populate form) =====
-        function editMockTest(testId) {
-            const test = mockTests.find(t => t.id === testId);
-            if (!test) return;
+        async function editMockTest(testId) {
+            const result = await apiPost('get-admin-mocktest.php', { mock_test_id: testId });
+            if (!result.status || !result.data) {
+                api.showToast('Could not load test details.', 'error');
+                return;
+            }
+            const test = result.data;
 
             editingMockTestId = testId;
 
-            // Populate form fields
-            document.getElementById('classSelect').value = test.classId;
-            document.getElementById('classSelect').dispatchEvent(new Event('change'));
-            // Subjects populate synchronously via dispatchEvent, so set immediately
-            document.getElementById('subjectSelect').value = test.subjectId;
-            document.getElementById('testName').value = test.name;
-            document.getElementById('testDate').value = test.date;
-            document.getElementById('testDuration').value = test.duration === '—' ? '' : test.duration;
-            document.getElementById('testDesc').value = test.description;
+            const classSel = document.getElementById('classSelect');
+            // Find the option for this class
+            for (let opt of classSel.options) {
+                if (opt.value == test.class_id) { classSel.value = opt.value; break; }
+            }
+            classSel.dispatchEvent(new Event('change'));
+            // Wait briefly for subjects to load, then set subject
+            setTimeout(() => {
+                const subjectSel = document.getElementById('subjectSelect');
+                for (let opt of subjectSel.options) {
+                    if (opt.value == test.subject_id) { subjectSel.value = opt.value; break; }
+                }
+            }, 300);
 
-            // Change button to update mode
+            document.getElementById('testName').value = test.test_name;
+            document.getElementById('testDate').value = test.test_date;
+            document.getElementById('testDuration').value = test.duration_minutes || '';
+            document.getElementById('testStartTime').value = test.start_time || '09:00';
+            document.getElementById('testEndTime').value = test.end_time || '10:00';
+            document.getElementById('testDesc').value = test.description || '';
+
             document.getElementById('submitBtnText').textContent = 'Update Test';
             document.getElementById('submitTestBtn').className = 'btn btn-warning';
-
-            // Scroll to form
             document.querySelector('.form-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
         // ===== DELETE MOCK TEST =====
-        function deleteMockTest(testId) {
+        async function deleteMockTest(testId) {
             if (!confirm('Are you sure you want to delete this mock test? All questions will also be removed.')) return;
-            mockTests = mockTests.filter(t => t.id !== testId);
-            renderTable();
-            renderUpcoming();
+            const result = await apiPost('delete-mock-test.php', { mock_test_id: testId });
+            if (result.status) {
+                api.showToast('Mock test deleted!', 'success');
+                loadAllTests();
+            } else {
+                api.showToast(result.message || 'Failed to delete test. Delete questions first.', 'error');
+            }
         }
 
         // ===== RENDER TABLE (today's tests only — old tests go to Old section) =====
-        function renderTable() {
-            const today = new Date().toISOString().split('T')[0];
-            const todaysTests = mockTests.filter(t => t.date === today);
-            const tbody = document.getElementById('mockTestBody');
-
-            if (todaysTests.length === 0) {
-                tbody.innerHTML = `
-                    <tr id="emptyRow">
-                        <td colspan="8">
-                            <div class="empty-state" id="emptyState">
-                                <div class="empty-icon"><svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg></div>
-                                <h3>No tests for today</h3>
-                                <p>Create a new test above or repost an old one from the section below.</p>
+        function renderTests(tests, tbodyId, isUpcoming = false) {
+            const tbody = document.getElementById(tbodyId);
+            if (!tests || tests.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg></div><h3>No ${isUpcoming ? 'upcoming' : ''} tests</h3><p>${isUpcoming ? 'Schedule a test for a future date.' : 'Add a new test using the form above.'}</p></div></td></tr>`;
+                return;
+            }
+            let html = '';
+            tests.forEach((test, idx) => {
+                const qCount = test.total_questions || 0;
+                const dateLabel = isUpcoming ? test.test_date : 'Today';
+                html += `
+                    <tr>
+                        <td style="font-weight:600;color:#64748b;">${idx + 1}</td>
+                        <td style="color:#64748b;font-size:13px;white-space:nowrap;">${dateLabel}</td>
+                        <td><span class="class-badge">${test.class_name || ''}</span></td>
+                        <td><span class="subject-badge">${test.subject_name || ''}</span></td>
+                        <td style="font-weight:600;">${test.test_name}</td>
+                        <td>${test.duration_minutes || '—'} min</td>
+                        <td><span class="q-count">${qCount}</span></td>
+                        <td>
+                            <div class="actions-cell">
+                                <button class="btn btn-info btn-sm" onclick="openAddQuestion(${test.id})">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                                    Add Q
+                                </button>
+                                <button class="btn btn-success btn-sm" onclick="viewQuestions(${test.id})">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+                                    View
+                                </button>
+                                <button class="btn btn-warning btn-sm" onclick="editMockTest(${test.id})">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                                    Edit
+                                </button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteMockTest(${test.id})">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                                    Delete
+                                </button>
                             </div>
                         </td>
                     </tr>
                 `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        // ===== LOAD ALL TESTS (via API) =====
+        async function loadAllTests() {
+            // We need a class and subject to query - use first available or skip
+            const classId = parseInt(document.getElementById('classSelect').value) || 0;
+            // If no class selected, we can't query - just show empty states
+            if (classId <= 0) {
+                document.getElementById('mockTestBody').innerHTML =
+                    `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg></div><h3>Select a class above</h3><p>Choose a class to see today's tests.</p></div></td></tr>`;
+                return;
+            }
+            
+            // Use first subject if available, otherwise skip
+            const subjectSel = document.getElementById('subjectSelect');
+            const subjectId = parseInt(subjectSel.value) || 0;
+            
+            if (subjectId <= 0) {
+                // Can't query without subject
                 return;
             }
 
+            try {
+                const res = await fetch(ADMIN_API + 'get-mocktest-status.php?class_id=' + classId + '&subject_id=' + subjectId);
+                const result = await res.json();
+                if (result.status) {
+                    renderTests(result.today || [], 'mockTestBody');
+                    renderTests(result.upcoming || [], 'upcomingTestBody', true);
+                    // Store past tests for old tests section
+                    window._pastTests = result.past || [];
+                }
+            } catch(e) {
+                console.warn('Failed to load tests:', e);
+            }
+        }
+
+        // ===== OLD TESTS =====
+        async function loadOldTests() {
+            const date = document.getElementById('oldTestDate').value;
+            if (!date) { api.showToast('Please select a date.', 'error'); return; }
+            
+            const pastTests = window._pastTests || [];
+            const filtered = pastTests.filter(t => t.test_date === date);
+            const tbody = document.getElementById('oldTestBody');
+            
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg></div><h3>No tests found</h3><p>No mock tests were found for <strong>${date}</strong>.</p></div></td></tr>`;
+                return;
+            }
+            
             let html = '';
-            todaysTests.forEach((test, idx) => {
-                const qCount = test.questions.length;
+            filtered.forEach((test, idx) => {
                 html += `
                     <tr>
                         <td style="font-weight:600;color:#64748b;">${idx + 1}</td>
-                        <td style="color:#64748b;font-size:13px;white-space:nowrap;">Today</td>
-                        <td><span class="class-badge">${test.className}</span></td>
-                        <td><span class="subject-badge">${test.subjectName}</span></td>
-                        <td style="font-weight:600;">${test.name}</td>
-                        <td>${test.duration} min</td>
-                        <td><span class="q-count">${qCount}</span></td>
+                        <td><span class="class-badge">${test.class_name || ''}</span></td>
+                        <td><span class="subject-badge">${test.subject_name || ''}</span></td>
+                        <td style="font-weight:600;">${test.test_name}</td>
+                        <td>${test.duration_minutes || '—'} min</td>
+                        <td><span class="q-count">${test.total_questions || 0}</span></td>
+                        <td>
+                            <div class="actions-cell">
+                                <button class="btn btn-info btn-sm" onclick="openAddQuestion(${test.id})">Add Q</button>
+                                <button class="btn btn-success btn-sm" onclick="viewQuestions(${test.id})">View</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }}</span></td>
                         <td>
                             <div class="actions-cell">
                                 <button class="btn btn-info btn-sm" onclick="openAddQuestion(${test.id})">
@@ -1328,186 +1412,13 @@
                 document.querySelectorAll('.correct-answer-group label').forEach(l => l.classList.remove('selected'));
                 if (this.checked) this.parentElement.classList.add('selected');
             });
-        });        // ===== FORMAT DATE =====
-        function formatDate(dateStr) {
-            const d = new Date(dateStr + 'T00:00:00');
-            const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-            return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
-        }
+        });
 
-        // ===== OLD MOCK TESTS =====
-        function loadOldTests() {
-            const dateInput = document.getElementById('oldTestDate');
-            const selectedDate = dateInput.value;
-            const tbody = document.getElementById('oldTestBody');
-
-            if (!selectedDate) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="7">
-                            <div class="empty-state">
-                                <div class="empty-icon"><svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/></svg></div>
-                                            <h3>Select a date</h3>
-                                            <p>Choose a date above to view old mock tests.</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                            `;
-                return;
-            }
-
-            const filtered = mockTests.filter(t => t.date === selectedDate);
-
-            if (filtered.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="7">
-                            <div class="empty-state">
-                                <div class="empty-icon"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5z"/></svg></div>
-                                <h3>No tests found</h3>
-                                <p>No mock tests were created on ${formatDate(selectedDate)}.</p>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
-
-            let html = '';
-            filtered.forEach((test, idx) => {
-                const qCount = test.questions.length;
-                html += `
-                    <tr>
-                        <td style="font-weight:600;color:#64748b;">${idx + 1}</td>
-                        <td><span class="class-badge">${test.className}</span></td>
-                        <td><span class="subject-badge">${test.subjectName}</span></td>
-                        <td style="font-weight:600;">${test.name}</td>
-                        <td>${test.duration} min</td>
-                        <td><span class="q-count">${qCount}</span></td>
-                        <td>
-                            <div class="actions-cell">
-                                <button class="btn btn-warning btn-sm" onclick="repostTest(${test.id})">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
-                                    Repost
-                                </button>
-                                <button class="btn btn-success btn-sm" onclick="viewQuestions(${test.id})">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
-                                    ${qCount} Q
-                                </button>
-                                <button class="btn btn-danger btn-sm" onclick="deleteMockTest(${test.id})">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-                                    Delete
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            });
-            tbody.innerHTML = html;
-        }
-
-        function repostTest(testId) {
-            const test = mockTests.find(t => t.id === testId);
-            if (!test) return;
-
-            const today = new Date().toISOString().split('T')[0];
-
-            const newTest = {
-                id: testIdCounter++,
-                date: today,
-                classId: test.classId,
-                subjectId: test.subjectId,
-                className: test.className,
-                subjectName: test.subjectName,
-                name: test.name + ' (Repost)',
-                description: test.description,
-                duration: test.duration,
-                questions: test.questions.map(q => ({
-                    id: questionIdCounter++,
-                    text: q.text,
-                    options: [...q.options],
-                    correct: q.correct
-                }))
-            };
-
-            mockTests.push(newTest);
-            renderTable();
-            renderUpcoming();
-
-            // Refresh old tests view if same date is selected
-            const oldDateInput = document.getElementById('oldTestDate');
-            if (oldDateInput.value) {
-                loadOldTests();
-            }
-
-            alert(`Test reposted successfully for ${formatDate(today)}!`);
-        }
-
-        // ===== RENDER UPCOMING TESTS (future dates) =====
-        function renderUpcoming() {
-            const today = new Date().toISOString().split('T')[0];
-            const upcoming = mockTests.filter(t => t.date > today).sort((a, b) => a.date.localeCompare(b.date));
-            const tbody = document.getElementById('upcomingTestBody');
-
-            if (upcoming.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="8">
-                            <div class="empty-state">
-                                <div class="empty-icon"><svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z"/></svg></div>
-                                <h3>No upcoming tests</h3>
-                                <p>Schedule a test for a future date to see it here.</p>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
-
-            let html = '';
-            upcoming.forEach((test, idx) => {
-                const qCount = test.questions.length;
-                const displayDate = test.date ? formatDate(test.date) : '';
-                html += `
-                    <tr>
-                        <td style="font-weight:600;color:#64748b;">${idx + 1}</td>
-                        <td style="color:#92400e;font-size:13px;font-weight:600;white-space:nowrap;">${displayDate}</td>
-                        <td><span class="class-badge">${test.className}</span></td>
-                        <td><span class="subject-badge">${test.subjectName}</span></td>
-                        <td style="font-weight:600;">${test.name}</td>
-                        <td>${test.duration} min</td>
-                        <td><span class="q-count">${qCount}</span></td>
-                        <td>
-                            <div class="actions-cell">
-                                <button class="btn btn-info btn-sm" onclick="openAddQuestion(${test.id})" title="Add Questions">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-                                    Add Q
-                                </button>
-                                <button class="btn btn-success btn-sm" onclick="viewQuestions(${test.id})" title="View Questions">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
-                                    ${qCount} Q
-                                </button>
-                                <button class="btn btn-secondary btn-sm" onclick="editMockTest(${test.id})" title="Edit Test Details" style="background:#fef3c7;color:#92400e;">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-                                    Edit
-                                </button>
-                                <button class="btn btn-danger btn-sm" onclick="deleteMockTest(${test.id})">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-                                    Delete
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            });
-            tbody.innerHTML = html;
-        }
-
-        // Init (sets today's date and populates dropdowns)
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('testDate').value = today;
-        init();
-        renderUpcoming();
+        // Init
+        document.getElementById('testDate').value = new Date().toISOString().split('T')[0];
+        loadClasses();
+        loadAllTests();
     </script>
 </body>
 </html>
+

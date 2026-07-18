@@ -1,3 +1,11 @@
+<?php
+session_start();
+if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
+    header('Location: login.php');
+    exit;
+}
+require_once "../utils/api_config.php";
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -176,7 +184,13 @@
             </div>
         </div>
     </main>
+    <script src="js/api.js"></script>
     <script>
+        // Client-side auth check (fallback)
+        if (!sessionStorage.getItem('admin_logged_in')) {
+            window.location.href = 'login.php';
+        }
+
         const sidebar = document.getElementById('sidebar');
         const menuToggle = document.getElementById('menuToggle');
         const sidebarOverlay = document.getElementById('sidebarOverlay');

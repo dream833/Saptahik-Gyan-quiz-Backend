@@ -1,4 +1,11 @@
-<?php require_once "../utils/api_config.php"; ?>
+<?php
+session_start();
+if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
+    header('Location: login.php');
+    exit;
+}
+require_once "../utils/api_config.php";
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -476,7 +483,7 @@
         </nav>
 
         <div class="sidebar-footer">
-            <a href="login.php" onclick="return confirm('Are you sure you want to logout?')">
+            <a href="login.php?logout=1" onclick="return confirm('Are you sure you want to logout?')">
                 <span class="nav-icon">
                     <svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
                 </span>
@@ -589,6 +596,11 @@
         loadDashboardStats();
 
         // Highlight active link based on current page
+        // Client-side auth check (fallback)
+        if (!sessionStorage.getItem('admin_logged_in')) {
+            window.location.href = 'login.php?logout=1';
+        }
+
         const currentPage = window.location.pathname.split('/').pop();
         document.querySelectorAll('.sidebar-nav a').forEach(link => {
             const href = link.getAttribute('href');

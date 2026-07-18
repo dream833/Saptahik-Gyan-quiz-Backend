@@ -1,5 +1,75 @@
 <?php
+session_start();
 require_once "../utils/api_config.php";
+
+// Handle logout request
+if (isset($_GET['logout']) && $_GET['logout'] === '1') {
+    $_SESSION = [];
+    session_destroy();
+    // Also clear sessionStorage via JS in the HTML below
+    header('Location: login.php');
+    exit;
+}
+
+// If already logged in, redirect to dashboard
+if (isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true) {
+    header('Location: Dashboard.php');
+    exit;
+}
+?>
+
+<?php
+// Handle PHP-side login via POST (alternative to JS fetch)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email']) && isset($_POST['password'])) {
+    $email = trim($_POST['email']);
+    $password = trim($_POST['password']);
+    
+    if (!empty($email) && !empty($password)) {
+        // Make internal API call to validate credentials
+        $api_url = ADMIN_API_URL . 'admin_login.php';
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $api_url);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['email' => $email, 'password' => $password]));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+        $api_response = curl_exec($ch);
+        
+        // Fallback: direct DB check if curl fails
+        if (curl_errno($ch)) {
+            // Try direct DB check
+            require_once "../utils/db.php";
+            $stmt = $pdo->prepare("SELECT * FROM admins WHERE email = ? AND status = 'active' LIMIT 1");
+            $stmt->execute([$email]);
+            $admin = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($admin && $password === $admin['password']) {
+                $_SESSION['admin_logged_in'] = true;
+                $_SESSION['admin_id'] = $admin['id'];
+                $_SESSION['admin_name'] = $admin['name'];
+                $_SESSION['admin_email'] = $admin['email'];
+                header('Location: Dashboard.php');
+                exit;
+            } else {
+                // CURL failed and DB check failed - will use JS fallback
+            }
+        } else {
+            $result = json_decode($api_response, true);
+            
+            if ($result && isset($result['status']) && $result['status'] === true) {
+                $_SESSION['admin_logged_in'] = true;
+                $_SESSION['admin_id'] = $result['data']['id'] ?? null;
+                $_SESSION['admin_name'] = $result['data']['name'] ?? 'Admin';
+                $_SESSION['admin_email'] = $result['data']['email'] ?? $email;
+                curl_close($ch);
+                header('Location: Dashboard.php');
+                exit;
+            }
+        }
+        curl_close($ch);
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -434,15 +504,25 @@ require_once "../utils/api_config.php";
 
                 if (result.status) {
                     showSuccess('Login successful! Redirecting...');
-                    // Store admin info in sessionStorage
+                    // Store admin info in sessionStorage (client-side fallback)
                     sessionStorage.setItem('admin_logged_in', 'true');
                     sessionStorage.setItem('admin_name', result.data.name || 'Admin');
                     sessionStorage.setItem('admin_email', result.data.email || email);
                     sessionStorage.setItem('admin_role', result.data.role || 'Administrator');
-                    // Redirect to dashboard
-                    setTimeout(() => {
-                        window.location.href = 'Dashboard.php';
-                    }, 800);
+                    sessionStorage.setItem('admin_id', result.data.id || '');
+                    
+                    // Also submit form to PHP to set server-side session
+                    const formData = new FormData();
+                    formData.append('email', email);
+                    formData.append('password', password);
+                    // Submit to PHP to set server-side session, then redirect
+                    try {
+                        await fetch(window.location.href, {
+                            method: 'POST',
+                            body: formData
+                        });
+                    } catch(e) { /* ignore */ }
+                    window.location.href = 'Dashboard.php';
                 } else {
                     showError(result.message || 'Invalid credentials. Please try again.');
                     loginBtn.disabled = false;
