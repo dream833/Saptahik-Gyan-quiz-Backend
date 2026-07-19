@@ -872,11 +872,6 @@ require_once "../utils/api_config.php";
         menuToggle.addEventListener('click', toggleSidebar);
         sidebarOverlay.addEventListener('click', toggleSidebar);
 
-        // Client-side auth check
-        if (!sessionStorage.getItem('admin_logged_in')) {
-            window.location.href = 'login.php?logout=1';
-        }
-
         // ===== API CONFIG =====
         const ADMIN_API = '<?= ADMIN_API_URL ?>';
         const APP_API = '<?= APP_API_URL ?>';

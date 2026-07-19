@@ -242,11 +242,6 @@ require_once "../utils/api_config.php";
     </main>
     <script src="js/api.js"></script>
     <script>
-        // Client-side auth check (fallback)
-        if (!sessionStorage.getItem('admin_logged_in')) {
-            window.location.href = 'login.php?logout=1';
-        }
-
         const sidebar = document.getElementById('sidebar');
         const menuToggle = document.getElementById('menuToggle');
         const sidebarOverlay = document.getElementById('sidebarOverlay');
