@@ -1,21 +1,62 @@
 <?php
-// Handle login form submission
+// Handle login form submission via admin_login.php API
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = $_POST['email'] ?? '';
     $password = $_POST['password'] ?? '';
 
-    // Validate credentials (add your actual DB/auth logic here)
-    if (!empty($email) && !empty($password)) {
-        // Start session and set user data
-        session_start();
-        $_SESSION['admin_logged_in'] = true;
-        $_SESSION['admin_email'] = $email;
-        
-        // Redirect to dashboard
-        header('Location: Dashboard.php');
-        exit;
-    } else {
+    if (empty($email) || empty($password)) {
         $error = 'Please fill in all fields.';
+    } else {
+        // Build the API URL dynamically (same host, relative path)
+        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'];
+        $apiUrl = $protocol . '://' . $host . '/wb-admin/Api/admin/admin_login.php';
+
+        // Prepare JSON payload
+        $payload = json_encode([
+            'email' => $email,
+            'password' => $password
+        ]);
+
+        // Initialize cURL
+        $ch = curl_init($apiUrl);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $payload,
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+            CURLOPT_TIMEOUT => 10,
+            CURLOPT_CONNECTTIMEOUT => 5
+        ]);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+
+        if ($curlError) {
+            $error = 'Connection error: ' . $curlError;
+        } elseif ($httpCode !== 200 || empty($response)) {
+            $error = 'Server error. Please try again later.';
+        } else {
+            $result = json_decode($response, true);
+
+            if ($result && isset($result['status']) && $result['status'] === true) {
+                // Start session and set user data from API response
+                session_start();
+                $_SESSION['admin_logged_in'] = true;
+                $_SESSION['admin_id'] = $result['data']['id'] ?? null;
+                $_SESSION['admin_name'] = $result['data']['name'] ?? '';
+                $_SESSION['admin_email'] = $result['data']['email'] ?? $email;
+                $_SESSION['admin_role'] = $result['data']['role'] ?? 'admin';
+
+                // Redirect to dashboard
+                header('Location: Dashboard.php');
+                exit;
+            } else {
+                $error = $result['message'] ?? 'Invalid credentials. Please try again.';
+            }
+        }
     }
 }
 ?>
@@ -340,9 +381,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <p>Sign in to access the admin dashboard</p>
         </div>
 
-        <div class="error-message" id="errorMessage">
+        <div class="error-message<?= !empty($error) ? ' show' : '' ?>" id="errorMessage">
             <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
-            <span id="errorText">Invalid credentials. Please try again.</span>
+            <span id="errorText"><?= htmlspecialchars($error ?? 'Invalid credentials. Please try again.') ?></span>
         </div>
 
         <div class="success-message" id="successMessage">

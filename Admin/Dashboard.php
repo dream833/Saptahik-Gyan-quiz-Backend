@@ -1,4 +1,14 @@
 
+<?php
+session_start();
+if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
+    header('Location: login.php');
+    exit;
+}
+require_once "../utils/api_config.php";
+$adminName = $_SESSION['admin_name'] ?? 'Admin';
+$adminInitial = strtoupper(substr($adminName, 0, 1));
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -419,11 +429,7 @@
             .stat-card { padding: 14px; }
             .stat-card .stat-number { font-size: 22px; }
             .stat-card .stat-label { font-size: 12px; }
-        }
-
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
+            .stats-grid { grid-template-columns: 1fr; }
         }
 
         /* Scrollbar styling */
@@ -529,9 +535,9 @@
             <h1 class="page-title">Dashboard</h1>
             <div class="topbar-right">
                 <div class="admin-info">
-                    <div class="admin-avatar">A</div>
+                    <div class="admin-avatar"><?= $adminInitial ?></div>
                     <div>
-                        <div class="admin-name">Admin</div>
+                        <div class="admin-name"><?= htmlspecialchars($adminName) ?></div>
                         <div class="admin-role">Administrator</div>
                     </div>
                 </div>
@@ -540,7 +546,7 @@
 
         <div class="content-area">
             <div class="welcome-card">
-                <h2>Welcome back, Admin! 👋</h2>
+                <h2>Welcome back, <?= htmlspecialchars($adminName) ?>! 👋</h2>
                 <p>Manage your mock tests, view results, and oversee users from your admin dashboard.</p>
             </div>
 
@@ -584,6 +590,8 @@
                     <div class="stat-value" id="totalQuestions">—</div>
                     <div class="stat-label">Total Questions</div>
                 </div>
+
+
             </div>
         </div>
     </main>
@@ -603,9 +611,15 @@
 
         // Load dashboard stats from API
         async function loadDashboardStats() {
-            const API_BASE = '<?= ADMIN_API_URL ?>';
+            const statIds = ['totalClasses', 'totalSubjects', 'totalMockTests', 'totalQuestions'];
+            // Show loading spinners
+            statIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerHTML = '<span class="spinner"></span>';
+            });
+
             try {
-                const res = await fetch(API_BASE + 'get-dashboard.php', {
+                const res = await fetch('<?= ADMIN_API_URL ?>get-dashboard.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({})
@@ -616,18 +630,23 @@
                     document.getElementById('totalSubjects').textContent = result.data.total_subjects || '0';
                     document.getElementById('totalMockTests').textContent = result.data.total_mock_tests || '0';
                     document.getElementById('totalQuestions').textContent = result.data.total_questions || '0';
+                } else {
+                    statIds.forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el && el.querySelector('.spinner')) el.textContent = '—';
+                    });
                 }
             } catch (err) {
                 console.warn('Could not load dashboard stats:', err);
+                statIds.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el && el.querySelector('.spinner')) el.textContent = '—';
+                });
             }
         }
         loadDashboardStats();
 
         // Highlight active link based on current page
-        // Client-side auth check (fallback)
-        if (!sessionStorage.getItem('admin_logged_in')) {
-            window.location.href = 'login.php?logout=1';
-        }
 
         const currentPage = window.location.pathname.split('/').pop();
         document.querySelectorAll('.sidebar-nav a').forEach(link => {
