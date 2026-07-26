@@ -1,11 +1,10 @@
-
 <?php
 session_start();
 if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
     header('Location: login.php');
     exit;
 }
-require_once "../utils/api_config.php";
+require_once __DIR__ . "/../utils/api_config.php";
 $adminName = $_SESSION['admin_name'] ?? 'Admin';
 $adminInitial = strtoupper(substr($adminName, 0, 1));
 ?>

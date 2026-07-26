@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . "/../utils/api_config.php";
+
 // Handle login form submission via admin_login.php API
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = $_POST['email'] ?? '';
@@ -7,10 +9,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($email) || empty($password)) {
         $error = 'Please fill in all fields.';
     } else {
-        // Build the API URL dynamically (same host, relative path)
-        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        $host = $_SERVER['HTTP_HOST'];
-        $apiUrl = $protocol . '://' . $host . '/wb-admin/Api/admin/admin_login.php';
+        // Use the configured ADMIN_API_URL from api_config.php
+        $apiUrl = ADMIN_API_URL . 'admin_login.php';
 
         // Prepare JSON payload
         $payload = json_encode([
@@ -25,8 +25,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => $payload,
             CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-            CURLOPT_TIMEOUT => 10,
-            CURLOPT_CONNECTTIMEOUT => 5
+            CURLOPT_TIMEOUT => 15,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => 0,
+            CURLOPT_FOLLOWLOCATION => true
         ]);
 
         $response = curl_exec($ch);
@@ -35,7 +38,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         curl_close($ch);
 
         if ($curlError) {
-            $error = 'Connection error: ' . $curlError;
+            // On production, servers often can't reach themselves via public domain (loopback).
+            // Try the raw PHP stream as a fallback.
+            $context = stream_context_create([
+                'http' => [
+                    'method' => 'POST',
+                    'header' => 'Content-Type: application/json',
+                    'content' => $payload,
+                    'timeout' => 10,
+                    'ignore_errors' => true
+                ],
+                'ssl' => [
+                    'verify_peer' => false,
+                    'verify_peer_name' => false
+                ]
+            ]);
+            $response = @file_get_contents($apiUrl, false, $context);
+            if ($response === false) {
+                $error = 'Connection error: ' . $curlError . '. Please contact support.';
+            } else {
+                $result = json_decode($response, true);
+                if ($result && isset($result['status']) && $result['status'] === true) {
+                    session_start();
+                    $_SESSION['admin_logged_in'] = true;
+                    $_SESSION['admin_id'] = $result['data']['id'] ?? null;
+                    $_SESSION['admin_name'] = $result['data']['name'] ?? '';
+                    $_SESSION['admin_email'] = $result['data']['email'] ?? $email;
+                    $_SESSION['admin_role'] = $result['data']['role'] ?? 'admin';
+                    header('Location: ' . BASE_URL . 'Admin/Dashboard.php');
+                    exit;
+                } else {
+                    $error = $result['message'] ?? 'Invalid credentials. Please try again.';
+                }
+            }
         } elseif ($httpCode !== 200 || empty($response)) {
             $error = 'Server error. Please try again later.';
         } else {
@@ -50,8 +85,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['admin_email'] = $result['data']['email'] ?? $email;
                 $_SESSION['admin_role'] = $result['data']['role'] ?? 'admin';
 
-                // Redirect to dashboard
-                header('Location: Dashboard.php');
+                // Redirect to dashboard using absolute URL from config
+                header('Location: ' . BASE_URL . 'Admin/Dashboard.php');
                 exit;
             } else {
                 $error = $result['message'] ?? 'Invalid credentials. Please try again.';
