@@ -851,9 +851,7 @@ require_once "../utils/api_config.php";
     let questions = [];
     let detailContext = {};
     let categoryLocked = false;
-    let nextClassId = 1000;
-    let nextSubjectId = 1000;
-    let nextChapterId = 1000;
+    // IDs are now managed server-side via APIs; remove local counters
     let nextSetId = 1000;
 
     // ===== API HELPER =====
@@ -1448,32 +1446,57 @@ require_once "../utils/api_config.php";
         if (!name) { alert('Please enter a ' + type + ' name.'); return; }
 
         if (type === 'class') {
-            if (data.classes.some(c => c.class_name.toLowerCase() === name.toLowerCase())) { alert('This class already exists.'); return; }
-            const id = nextClassId++; data.classes.push({ id, class_name: name }); data.subjects[id] = [];
-            hideAddInput('class'); populateSelect('class');
-            document.getElementById('classSelect').value = id; document.getElementById('classSelect').dispatchEvent(new Event('change'));
+            apiPost('add-class.php', { class_name: name }).then(result => {
+                if (result.status) {
+                    hideAddInput('class');
+                    return loadClasses().then(() => {
+                        document.getElementById('classSelect').value = result.class_id;
+                        document.getElementById('classSelect').dispatchEvent(new Event('change'));
+                    });
+                } else {
+                    alert(result.message || 'Failed to add class.');
+                }
+            }).catch(() => {
+                alert('Network error: Could not add class.');
+            });
         } else if (type === 'subject') {
-            const classId = parseInt(document.getElementById('classSelect').value); if (!classId) { alert('Please select a class first.'); return; }
-            const subs = data.subjects[classId] || [];
-            if (subs.some(s => s.subject_name.toLowerCase() === name.toLowerCase())) { alert('This subject already exists.'); return; }
-            const id = nextSubjectId++; subs.push({ id, subject_name: name }); data.subjects[classId] = subs; data.chapters[id] = [];
-            hideAddInput('subject'); populateSelect('subject');
-            document.getElementById('subjectSelect').value = id; document.getElementById('subjectSelect').dispatchEvent(new Event('change'));
+            const classId = parseInt(document.getElementById('classSelect').value);
+            if (!classId) { alert('Please select a class first.'); return; }
+            apiPost('add-subject.php', { class_id: classId, subject_name: name }).then(result => {
+                if (result.status) {
+                    hideAddInput('subject');
+                    return loadSubjects(classId).then(() => {
+                        document.getElementById('subjectSelect').value = result.subject_id;
+                        document.getElementById('subjectSelect').dispatchEvent(new Event('change'));
+                    });
+                } else {
+                    alert(result.message || 'Failed to add subject.');
+                }
+            }).catch(() => {
+                alert('Network error: Could not add subject.');
+            });
         } else if (type === 'chapter') {
-            const subjectId = parseInt(document.getElementById('subjectSelect').value); if (!subjectId) { alert('Please select a subject first.'); return; }
-            const chs = data.chapters[subjectId] || [];
-            if (chs.some(ch => ch.chapter_name.toLowerCase() === name.toLowerCase())) { alert('This chapter already exists.'); return; }
-            const id = nextChapterId++; chs.push({ id, chapter_name: name }); data.chapters[subjectId] = chs; data.sets[id] = [];
-            hideAddInput('chapter'); populateSelect('chapter');
-            document.getElementById('chapterSelect').value = id; document.getElementById('chapterSelect').dispatchEvent(new Event('change'));
+            const subjectId = parseInt(document.getElementById('subjectSelect').value);
+            if (!subjectId) { alert('Please select a subject first.'); return; }
+            apiPost('add-chapter.php', { subject_id: subjectId, chapter_name: name }).then(result => {
+                if (result.status) {
+                    hideAddInput('chapter');
+                    return loadChapters(subjectId).then(() => {
+                        document.getElementById('chapterSelect').value = result.chapter_id;
+                        document.getElementById('chapterSelect').dispatchEvent(new Event('change'));
+                    });
+                } else {
+                    alert(result.message || 'Failed to add chapter.');
+                }
+            }).catch(() => {
+                alert('Network error: Could not add chapter.');
+            });
         } else if (type === 'set') {
-            const chapterId = parseInt(document.getElementById('chapterSelect').value); if (!chapterId) { alert('Please select a chapter first.'); return; }
-            const sts = data.sets[chapterId] || [];
-            if (sts.some(s => s.name.toLowerCase() === name.toLowerCase())) { alert('This set already exists.'); return; }
+            const chapterId = parseInt(document.getElementById('chapterSelect').value);
+            if (!chapterId) { alert('Please select a chapter first.'); return; }
             apiPost('add-set.php', { chapter_id: chapterId, set_name: name, duration_minutes: 30 }).then(result => {
                 if (result.status) {
                     hideAddInput('set');
-                    // Reload sets from server to ensure consistency and avoid race conditions
                     loadSets(chapterId);
                 } else {
                     alert(result.message || 'Failed to add set.');
