@@ -647,14 +647,7 @@ require_once "../utils/api_config.php";
                         <label>Duration (minutes)</label>
                         <input type="number" id="testDuration" placeholder="e.g. 30" min="1">
                     </div>
-                    <div class="form-group">
-                        <label>Start Time <span class="required">*</span></label>
-                        <input type="time" id="testStartTime" value="09:00">
-                    </div>
-                    <div class="form-group">
-                        <label>End Time <span class="required">*</span></label>
-                        <input type="time" id="testEndTime" value="10:00">
-                    </div>
+
                     <div class="form-group full-width">
                         <label>Description</label>
                         <textarea id="testDesc" placeholder="Enter a brief description of the mock test..."></textarea>
@@ -710,7 +703,7 @@ require_once "../utils/api_config.php";
                     <span class="form-icon" style="background:#fef3c7;"><svg viewBox="0 0 24 24" fill="#f59e0b"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></span>
                     Upcoming Tests
                 </h2>
-                <p style="font-size:13px;color:#92400e;margin-bottom:16px;margin-top:-12px;">Tests scheduled for future dates</p>
+                <p style="font-size:13px;color:#92400e;margin-bottom:16px;margin-top:-12px;">Tests scheduled for future dates (including tomorrow)</p>
                 <div class="table-container">
                     <div class="table-scroll">
                         <table>
@@ -748,6 +741,7 @@ require_once "../utils/api_config.php";
                     <span class="form-icon" style="background:#fef2f2;"><svg viewBox="0 0 24 24" fill="#ef4444"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></span>
                     Old Mock Test Data
                 </h2>
+                <p style="font-size:13px;color:#64748b;margin-bottom:16px;margin-top:-12px;">Past tests (auto-loads yesterday's data)</p>
                 <div class="form-grid">
                     <div class="form-group">
                         <label>Select Date</label>
@@ -1012,17 +1006,14 @@ require_once "../utils/api_config.php";
             const testDesc = document.getElementById('testDesc').value.trim();
             const duration = parseInt(document.getElementById('testDuration').value) || 0;
             const testDate = document.getElementById('testDate').value;
-            const startTime = document.getElementById('testStartTime').value;
-            const endTime = document.getElementById('testEndTime').value;
-
-            if (!classId || !subjectId || !testName || !testDate || !startTime || !endTime || duration <= 0) {
-                api.showToast('Please fill all required fields (Class, Subject, Name, Date, Start/End Time, Duration).', 'error');
+            if (!classId || !subjectId || !testName || !testDate || duration <= 0) {
+                api.showToast('Please fill all required fields (Class, Subject, Name, Date, Duration).', 'error');
                 return;
             }
 
             const btn = document.getElementById('submitTestBtn');
             btn.disabled = true;
-            btn.textContent = 'Saving...';
+            document.getElementById('submitBtnText').textContent = 'Saving...';
 
             if (editingMockTestId) {
                 const result = await apiPost('update-mock-test.php', {
@@ -1032,8 +1023,6 @@ require_once "../utils/api_config.php";
                     test_name: testName,
                     description: testDesc,
                     test_date: testDate,
-                    start_time: startTime,
-                    end_time: endTime,
                     duration_minutes: duration
                 });
                 if (result.status) {
@@ -1051,8 +1040,6 @@ require_once "../utils/api_config.php";
                     test_name: testName,
                     description: testDesc,
                     test_date: testDate,
-                    start_time: startTime,
-                    end_time: endTime,
                     duration_minutes: duration
                 });
                 if (result.status) {
@@ -1063,10 +1050,18 @@ require_once "../utils/api_config.php";
             }
 
             btn.disabled = false;
-            btn.textContent = '';
             document.getElementById('submitBtnText').textContent = editingMockTestId ? 'Update Test' : 'Add Mock Test';
+            // Save class/subject then set form back so user sees context and tests show below
+            const savedClassId = classId;
+            const savedSubjectId = subjectId;
             resetForm();
-            loadAllTests();
+            // Restore class/subject in form so user sees what they're viewing
+            document.getElementById('classSelect').value = savedClassId;
+            document.getElementById('classSelect').dispatchEvent(new Event('change'));
+            setTimeout(() => {
+                document.getElementById('subjectSelect').value = savedSubjectId;
+                loadAllTests(savedClassId, savedSubjectId);
+            }, 300);
         }
 
         function resetForm() {
@@ -1126,8 +1121,7 @@ require_once "../utils/api_config.php";
             document.getElementById('testName').value = test.test_name;
             document.getElementById('testDate').value = test.test_date;
             document.getElementById('testDuration').value = test.duration_minutes || '';
-            document.getElementById('testStartTime').value = test.start_time || '09:00';
-            document.getElementById('testEndTime').value = test.end_time || '10:00';
+
             document.getElementById('testDesc').value = test.description || '';
 
             document.getElementById('submitBtnText').textContent = 'Update Test';
@@ -1194,19 +1188,20 @@ require_once "../utils/api_config.php";
         }
 
         // ===== LOAD ALL TESTS (via API) =====
-        async function loadAllTests() {
-            // We need a class and subject to query - use first available or skip
-            const classId = parseInt(document.getElementById('classSelect').value) || 0;
+        async function loadAllTests(classId, subjectId) {
+            // Use provided params, or fall back to form values
+            if (classId === undefined) {
+                classId = parseInt(document.getElementById('classSelect').value) || 0;
+            }
+            if (subjectId === undefined) {
+                subjectId = parseInt(document.getElementById('subjectSelect').value) || 0;
+            }
             // If no class selected, we can't query - just show empty states
             if (classId <= 0) {
                 document.getElementById('mockTestBody').innerHTML =
                     `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg></div><h3>Select a class above</h3><p>Choose a class to see today's tests.</p></div></td></tr>`;
                 return;
             }
-            
-            // Use first subject if available, otherwise skip
-            const subjectSel = document.getElementById('subjectSelect');
-            const subjectId = parseInt(subjectSel.value) || 0;
             
             if (subjectId <= 0) {
                 // Can't query without subject
@@ -1426,8 +1421,16 @@ require_once "../utils/api_config.php";
 
         // Init
         document.getElementById('testDate').value = new Date().toISOString().split('T')[0];
+        
+        // Auto-load yesterday's tests in Old Mock Test Data section
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        document.getElementById('oldTestDate').value = yesterday.toISOString().split('T')[0];
+        
         loadClasses();
         loadAllTests();
+        // Load yesterday's old tests after a brief delay (so loadAllTests populates _pastTests first)
+        setTimeout(loadOldTests, 500);
     </script>
 </body>
 </html>

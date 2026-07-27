@@ -12,8 +12,6 @@ $subject_id = intval($data['subject_id'] ?? 0);
 $test_name = trim($data['test_name'] ?? '');
 $description = trim($data['description'] ?? '');
 $test_date = trim($data['test_date'] ?? '');
-$start_time = trim($data['start_time'] ?? '');
-$end_time = trim($data['end_time'] ?? '');
 $duration = intval($data['duration_minutes'] ?? 0);
 
 if (
@@ -22,8 +20,6 @@ if (
     $subject_id <= 0 ||
     empty($test_name) ||
     empty($test_date) ||
-    empty($start_time) ||
-    empty($end_time) ||
     $duration <= 0
 ) {
 
@@ -73,36 +69,6 @@ try{
 
     }
 
-    // Duplicate Check
-    $dup=$pdo->prepare("
-        SELECT id
-        FROM mock_tests
-        WHERE
-        class_id=?
-        AND subject_id=?
-        AND test_name=?
-        AND test_date=?
-        AND id<>?
-    ");
-
-    $dup->execute([
-        $class_id,
-        $subject_id,
-        $test_name,
-        $test_date,
-        $mock_test_id
-    ]);
-
-    if($dup->rowCount()>0){
-
-        echo json_encode([
-            "status"=>false,
-            "message"=>"Mock Test Already Exists"
-        ]);
-        exit;
-
-    }
-
     $stmt=$pdo->prepare("
         UPDATE mock_tests
         SET
@@ -111,8 +77,6 @@ try{
             test_name=?,
             description=?,
             test_date=?,
-            start_time=?,
-            end_time=?,
             duration_minutes=?
         WHERE id=?
     ");
@@ -123,8 +87,6 @@ try{
         $test_name,
         $description,
         $test_date,
-        $start_time,
-        $end_time,
         $duration,
         $mock_test_id
     ]);

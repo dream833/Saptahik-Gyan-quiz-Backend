@@ -10,8 +10,6 @@ $subject_id = intval($data['subject_id'] ?? 0);
 $test_name = trim($data['test_name'] ?? '');
 $description = trim($data['description'] ?? '');
 $test_date = trim($data['test_date'] ?? '');
-$start_time = trim($data['start_time'] ?? '');
-$end_time = trim($data['end_time'] ?? '');
 $duration = intval($data['duration_minutes'] ?? 0);
 
 if (
@@ -19,22 +17,11 @@ if (
     $subject_id <= 0 ||
     empty($test_name) ||
     empty($test_date) ||
-    empty($start_time) ||
-    empty($end_time) ||
     $duration <= 0
 ) {
     echo json_encode([
         "status" => false,
         "message" => "All Fields are Required"
-    ]);
-    exit;
-}
-
-if (strtotime($start_time) >= strtotime($end_time)) {
-
-    echo json_encode([
-        "status" => false,
-        "message" => "End Time must be greater than Start Time"
     ]);
     exit;
 }
@@ -71,32 +58,6 @@ try {
         exit;
     }
 
-    // Duplicate Check
-    $dup = $pdo->prepare("
-        SELECT id
-        FROM mock_tests
-        WHERE class_id=?
-        AND subject_id=?
-        AND test_date=?
-        AND start_time=?
-    ");
-
-    $dup->execute([
-        $class_id,
-        $subject_id,
-        $test_date,
-        $start_time
-    ]);
-
-    if ($dup->rowCount() > 0) {
-
-        echo json_encode([
-            "status" => false,
-            "message" => "Mock Test Already Exists"
-        ]);
-        exit;
-    }
-
     // Insert
     $stmt = $pdo->prepare("
         INSERT INTO mock_tests
@@ -116,7 +77,7 @@ try {
         )
         VALUES
         (
-            ?,?,?,?,?,?,?,?,
+            ?,?,?,?,?,'00:00:00','23:59:00',?,
             0,
             0,
             1,
@@ -130,8 +91,6 @@ try {
         $test_name,
         $description,
         $test_date,
-        $start_time,
-        $end_time,
         $duration
     ]);
 

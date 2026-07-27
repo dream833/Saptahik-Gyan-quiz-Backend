@@ -3,7 +3,7 @@
  * API Configuration
  * 
  * Centralized base URL configuration for all API endpoints.
- * Change BASE_URL based on your environment (local/dev/production).
+ * Automatically detects environment (localhost vs production).
  * 
  * Usage in JavaScript (via login.php):
  *   const ADMIN_API = "<?= ADMIN_API_URL ?>";
@@ -14,12 +14,30 @@
  */
 
 // ============================================
-// BASE URL - Change this per environment
+// Auto-detect BASE URL based on environment
 // ============================================
-// Local development: 'http://localhost/wb-admin/'
 // Production:        'https://saptahikgyan.space/wb-admin/'
+// Local development: 'http://localhost/wb-admin/'
 // ============================================
-define('BASE_URL', 'https://saptahikgyan.space/wb-admin/');
+
+$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+
+// Get the base path (e.g., /wb-admin/)
+$scriptDir = dirname($_SERVER['SCRIPT_NAME'] ?? '/');
+// Go up from /utils/ to project root
+$basePath = dirname($scriptDir) . '/';
+// Normalize: replace backslashes, ensure trailing slash
+$basePath = rtrim(str_replace('\\', '/', $basePath), '/') . '/';
+
+// Fallback if auto-detection fails (e.g., CLI or unusual setup)
+if ($basePath === '/' || empty($host)) {
+    $host = 'saptahikgyan.space';
+    $basePath = '/wb-admin/';
+    $protocol = 'https';
+}
+
+define('BASE_URL', "$protocol://$host$basePath");
 
 // ============================================
 // API Base URLs (append endpoint name)
