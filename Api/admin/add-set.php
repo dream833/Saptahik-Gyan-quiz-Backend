@@ -7,12 +7,11 @@ $data = json_decode(file_get_contents("php://input"), true);
 
 $chapter_id = intval($data['chapter_id'] ?? 0);
 $set_name = trim($data['set_name'] ?? '');
-$duration_minutes = intval($data['duration_minutes'] ?? 0);
+$duration_minutes = intval($data['duration_minutes'] ?? 30);
 
 if (
     $chapter_id <= 0 ||
-    empty($set_name) ||
-    $duration_minutes <= 0
+    empty($set_name)
 ) {
 
     echo json_encode([

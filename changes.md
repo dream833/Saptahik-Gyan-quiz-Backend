@@ -53,6 +53,74 @@
 
 ---
 
+## 4. Fixed solution_suggestions Table — Added `description` Column
+
+**File modified:** `quiz.sql` (schema)
+
+**SQL to run:**
+```sql
+ALTER TABLE `solution_suggestions`
+  ADD COLUMN `description` text DEFAULT NULL AFTER `title`;
+```
+
+**What changed:**
+- The `add-solution-suggestion.php` API already sends a `description` field in the INSERT query, but the table was missing the `description` column, causing SQL errors.
+- Added the `description` column to match the API.
+
+---
+
+## 5. New Table: `exam_categories` (for Previous Year Questions)
+
+**SQL to run:**
+```sql
+CREATE TABLE `exam_categories` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `title` varchar(255) NOT NULL,
+  `description` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+```
+
+---
+
+## 6. New Table: `previous_year_questions` (stores PDF uploads)
+
+**SQL to run:**
+```sql
+CREATE TABLE `previous_year_questions` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `exam_category_id` int(11) NOT NULL,
+  `year` year(4) NOT NULL,
+  `subject_id` int(11) NOT NULL,
+  `pdf_file` varchar(255) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `fk_pyq_exam_category` (`exam_category_id`),
+  KEY `fk_pyq_subject` (`subject_id`),
+  CONSTRAINT `fk_pyq_exam_category` FOREIGN KEY (`exam_category_id`) REFERENCES `exam_categories` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_pyq_subject` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+```
+
+---
+
+## 7. New API Endpoints Created
+
+| API File | Purpose |
+|----------|---------|
+| `Api/admin/get-solution-suggestion.php` | Fetch suggestions by subject_id |
+| `Api/admin/update-solution-suggestion.php` | Update a suggestion |
+| `Api/admin/delete-solution-suggestion.php` | Delete a suggestion |
+| `Api/admin/add-exam-category.php` | Add exam category for PYQ |
+| `Api/admin/get-exam-category.php` | Get all exam categories |
+| `Api/admin/update-exam-category.php` | Update an exam category |
+| `Api/admin/delete-exam-category.php` | Delete an exam category |
+| `Api/admin/add-previous-year-question.php` | Add PYQ with PDF upload |
+| `Api/admin/get-previous-year-question.php` | Get PYQs by category + year |
+
+---
+
 ## Summary of All Modified Files
 
 | File | Change |
@@ -60,3 +128,15 @@
 | `Admin/dailymocktest.php` | Removed Start/End Time fields; Fixed `loadAllTests()` to accept params |
 | `Api/admin/add-mocktest.php` | Removed time validation & duplicate check |
 | `Api/admin/update-mock-test.php` | Removed time validation & duplicate check |
+| `Admin/solutions.php` | Complete redesign with 3-tab interface (Q&A, Suggestions, Previous Year) |
+| `Api/admin/add-solution-suggestion.php` | Fixed INSERT query to match table schema |
+| `Api/admin/get-solution-suggestion.php` | **NEW** — Fetch suggestions by subject |
+| `Api/admin/update-solution-suggestion.php` | **NEW** — Update suggestion |
+| `Api/admin/delete-solution-suggestion.php` | **NEW** — Delete suggestion |
+| `Api/admin/add-exam-category.php` | **NEW** — Add exam category |
+| `Api/admin/get-exam-category.php` | **NEW** — Get exam categories |
+| `Api/admin/update-exam-category.php` | **NEW** — Update exam category |
+| `Api/admin/delete-exam-category.php` | **NEW** — Delete exam category |
+| `Api/admin/add-previous-year-question.php` | **NEW** — Add PYQ with PDF |
+| `Api/admin/get-previous-year-question.php` | **NEW** — Get PYQs |
+| `Api/admin/delete-previous-year-question.php` | **NEW** — Delete PYQ (also removes PDF file) |

@@ -850,6 +850,7 @@ require_once "../utils/api_config.php";
     let currentClassId = 0, currentSubjectId = 0, currentChapterId = 0;
     let questions = [];
     let detailContext = {};
+    let categoryLocked = false;
     let nextClassId = 1000;
     let nextSubjectId = 1000;
     let nextChapterId = 1000;
@@ -927,16 +928,8 @@ require_once "../utils/api_config.php";
         try {
             const result = await apiPost('get-all-mock-questions.php', { set_id: setId });
             if (result.status && result.data) {
-                allQuestions = result.data.map(q => ({
-                    id: q.id, text: q.question,
-                    opts: [q.option_a, q.option_b, q.option_c, q.option_d],
-                    correct: q.correct_answer,
-                    date: q.created_at ? q.created_at.split(' ')[0] : '',
-                    time: q.created_at ? (q.created_at.split(' ')[1] || '') : '',
-                    setId: setId
-                }));
-                // Also populate the local questions array for CRUD operations
-                questions = result.data.map(q => ({
+                // Build updated questions for this set
+                const setQuestions = result.data.map(q => ({
                     id: q.id, text: q.question,
                     options: [q.option_a, q.option_b, q.option_c, q.option_d],
                     correct: q.correct_answer,
@@ -946,30 +939,87 @@ require_once "../utils/api_config.php";
                     subjectId: detailContext.subjectId || 0,
                     chapterId: detailContext.chapterId || 0,
                     setId: setId,
-                    className: detailContext.className || '',
-                    subjectName: detailContext.subjectName || '',
-                    chapterName: detailContext.chapterName || '',
-                    setName: detailContext.setName || ''
+                    className: getClassName(detailContext.classId),
+                    subjectName: getSubjectName(detailContext.classId, detailContext.subjectId),
+                    chapterName: getChapterName(detailContext.subjectId, detailContext.chapterId),
+                    setName: getSetName(detailContext.chapterId, setId)
                 }));
-            } else {
-                allQuestions = [];
-                questions = [];
+                const setMini = result.data.map(q => ({
+                    id: q.id, text: q.question,
+                    opts: [q.option_a, q.option_b, q.option_c, q.option_d],
+                    correct: q.correct_answer,
+                    date: q.created_at ? q.created_at.split(' ')[0] : '',
+                    time: q.created_at ? (q.created_at.split(' ')[1] || '') : '',
+                    setId: setId
+                }));
+
+                // Merge: remove old questions for this set, add updated ones
+                // This keeps questions from other sets intact
+                questions = questions.filter(q => q.setId !== setId).concat(setQuestions);
+                allQuestions = allQuestions.filter(q => q.setId !== setId).concat(setMini);
             }
+            // On error or empty data, don't clear the entire arrays —
+            // just remove this set's questions (they may no longer exist)
         } catch(e) {
-            allQuestions = [];
-            questions = [];
+            // Don't clear everything on error, leave existing data intact
+            console.error('Error loading questions for set', setId, e);
         }
-        renderDetailQuestions();
+        renderDetailTable();
     }
 
     // ===== INIT =====
-    function init() {
-        loadClasses();
+    async function init() {
+        // Wait for classes to load first, then populate select
+        await loadClasses();
         populateSelect('class');
         setupCascading();
         updateStepIndicator();
+        // Load all questions from the server to populate the questions array
+        await loadAllQuestions();
         renderSetCards();
         renderAllQuestionsByDate();
+    }
+
+    async function loadAllQuestions() {
+        console.log('Loading all questions from get-all-questions.php...');
+        try {
+            const result = await apiPost('get-all-questions.php', {});
+            console.log('get-all-questions.php response:', result);
+            if (result.status && Array.isArray(result.data)) {
+                questions = result.data.map(q => ({
+                    id: q.id, text: q.question,
+                    options: [q.option_a, q.option_b, q.option_c, q.option_d],
+                    correct: q.correct_answer,
+                    date: q.created_at ? q.created_at.split(' ')[0] : '',
+                    time: q.created_at ? (q.created_at.split(' ')[1] || '') : '',
+                    classId: parseInt(q.class_id),
+                    subjectId: parseInt(q.subject_id),
+                    chapterId: parseInt(q.chapter_id),
+                    setId: parseInt(q.set_id),
+                    className: q.class_name || '',
+                    subjectName: q.subject_name || '',
+                    chapterName: q.chapter_name || '',
+                    setName: q.set_name || ''
+                }));
+                allQuestions = result.data.map(q => ({
+                    id: q.id, text: q.question,
+                    opts: [q.option_a, q.option_b, q.option_c, q.option_d],
+                    correct: q.correct_answer,
+                    date: q.created_at ? q.created_at.split(' ')[0] : '',
+                    time: q.created_at ? (q.created_at.split(' ')[1] || '') : '',
+                    setId: parseInt(q.set_id)
+                }));
+                console.log('Loaded ' + questions.length + ' questions.');
+            } else {
+                console.warn('get-all-questions.php returned no data or invalid format:', result);
+                questions = [];
+                allQuestions = [];
+            }
+        } catch(e) {
+            console.error('Error loading all questions:', e);
+            questions = [];
+            allQuestions = [];
+        }
     }
 
     // ===== POPULATE SELECT =====
@@ -978,11 +1028,12 @@ require_once "../utils/api_config.php";
         if (type === 'class') {
             sel.innerHTML = '<option value="">Select Class</option>';
             data.classes.forEach(c => sel.innerHTML += `<option value="${c.id}">${c.class_name}</option>`);
+            sel.disabled = categoryLocked;
         } else if (type === 'subject') {
             const classId = parseInt(document.getElementById('classSelect').value);
             sel.innerHTML = '';
             if (!classId) { sel.innerHTML = '<option value="">Select Class First</option>'; sel.disabled = true; return; }
-            sel.disabled = false;
+            sel.disabled = categoryLocked;
             const subs = data.subjects[classId] || [];
             sel.innerHTML = '<option value="">Select Subject</option>';
             subs.forEach(s => sel.innerHTML += `<option value="${s.id}">${s.subject_name}</option>`);
@@ -990,7 +1041,7 @@ require_once "../utils/api_config.php";
             const subjectId = parseInt(document.getElementById('subjectSelect').value);
             sel.innerHTML = '';
             if (!subjectId) { sel.innerHTML = '<option value="">Select Subject First</option>'; sel.disabled = true; return; }
-            sel.disabled = false;
+            sel.disabled = categoryLocked;
             const chs = data.chapters[subjectId] || [];
             sel.innerHTML = '<option value="">Select Chapter</option>';
             chs.forEach(ch => sel.innerHTML += `<option value="${ch.id}">${ch.chapter_name}</option>`);
@@ -1118,18 +1169,19 @@ require_once "../utils/api_config.php";
     // ===== SET DETAIL =====
     detailContext = { classId: null, subjectId: null, chapterId: null, setId: null };
 
-    function openSetDetail(setId) {
-        const classId = parseInt(document.getElementById('classSelect').value);
-        const subjectId = parseInt(document.getElementById('subjectSelect').value);
-        const chapterId = parseInt(document.getElementById('chapterSelect').value);
+    async function openSetDetail(setId, classId, subjectId, chapterId) {
+        // Use provided IDs, or fall back to reading from select elements
+        if (!classId) classId = parseInt(document.getElementById('classSelect').value);
+        if (!subjectId) subjectId = parseInt(document.getElementById('subjectSelect').value);
+        if (!chapterId) chapterId = parseInt(document.getElementById('chapterSelect').value);
         if (!classId || !subjectId || !chapterId || !setId) return;
 
         detailContext = { classId, subjectId, chapterId, setId };
         selectedSetId = setId;
 
-        const className = getSelectedText('classSelect');
-        const subjectName = getSelectedText('subjectSelect');
-        const chapterName = getSelectedText('chapterSelect');
+        const className = getClassName(classId) || getSelectedText('classSelect');
+        const subjectName = getSubjectName(classId, subjectId) || getSelectedText('subjectSelect');
+        const chapterName = getChapterName(subjectId, chapterId) || getSelectedText('chapterSelect');
         const set = data.sets[chapterId]?.find(s => s.id === setId);
         const setName = set ? set.name : '';
 
@@ -1146,7 +1198,7 @@ require_once "../utils/api_config.php";
         document.getElementById('setCardsSection').style.display = 'none';
         document.getElementById('setDetailSection').style.display = 'block';
         clearDetailForm();
-        renderDetailTable();
+        await loadQuestionsForSet(setId);
     }
 
     function closeSetDetail() {
@@ -1155,6 +1207,13 @@ require_once "../utils/api_config.php";
         selectedSetId = null;
         editingQuestionId = null;
         clearDetailForm();
+
+        // Unlock category selects (cascade event handlers handle the rest)
+        categoryLocked = false;
+        document.getElementById('classSelect').disabled = false;
+        // Re-enable subject & chapter — the cascade handlers manage their state
+        document.getElementById('subjectSelect').disabled = categoryLocked;
+        document.getElementById('chapterSelect').disabled = categoryLocked;
     }
 
     function getDetailQuestions() {
@@ -1216,7 +1275,7 @@ require_once "../utils/api_config.php";
             alert('Please fill in all fields and select the correct answer.'); return;
         }
 
-        const { setId } = detailContext;
+        const { classId, subjectId, chapterId, setId } = detailContext;
         if (!setId) { alert('No set selected.'); return; }
 
         try {
@@ -1250,11 +1309,60 @@ require_once "../utils/api_config.php";
 
             if (result.status) {
                 alert(result.message || 'Success!');
+                const now = new Date();
+                const dateStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+                const timeStr = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0') + ':' + String(now.getSeconds()).padStart(2,'0');
+
+                if (editingQuestionId) {
+                    // Update existing question in the arrays
+                    const updatedQ = {
+                        id: editingQuestionId, text,
+                        options: [optA, optB, optC, optD],
+                        correct,
+                        date: dateStr, time: timeStr,
+                        classId, subjectId, chapterId, setId,
+                        className: getClassName(classId),
+                        subjectName: getSubjectName(classId, subjectId),
+                        chapterName: getChapterName(subjectId, chapterId),
+                        setName: getSetName(chapterId, setId)
+                    };
+                    questions = questions.map(q => q.id === editingQuestionId ? updatedQ : q);
+                    allQuestions = allQuestions.map(q => q.id === editingQuestionId ? {
+                        id: editingQuestionId, text,
+                        opts: [optA, optB, optC, optD],
+                        correct,
+                        date: dateStr, time: timeStr,
+                        setId
+                    } : q);
+                } else {
+                    // Add new question to the arrays
+                    const newId = result.question_id || (Date.now());
+                    const newQ = {
+                        id: newId, text,
+                        options: [optA, optB, optC, optD],
+                        correct,
+                        date: dateStr, time: timeStr,
+                        classId, subjectId, chapterId, setId,
+                        className: getClassName(classId),
+                        subjectName: getSubjectName(classId, subjectId),
+                        chapterName: getChapterName(subjectId, chapterId),
+                        setName: getSetName(chapterId, setId)
+                    };
+                    questions.unshift(newQ);
+                    allQuestions.unshift({
+                        id: newId, text,
+                        opts: [optA, optB, optC, optD],
+                        correct,
+                        date: dateStr, time: timeStr,
+                        setId
+                    });
+                }
+
                 editingQuestionId = null;
                 document.getElementById('detailSaveText').textContent = 'Add Question';
                 document.getElementById('detailSaveBtn').className = 'btn btn-primary';
                 clearDetailForm();
-                await loadQuestionsForSet(setId);
+                renderDetailTable();
                 renderSetCards();
                 renderAllQuestionsByDate();
             } else {
@@ -1313,11 +1421,13 @@ require_once "../utils/api_config.php";
 
     // ===== RESET =====
     function resetManageSection() {
+        categoryLocked = false;
         document.getElementById('classSelect').value = '';
         document.getElementById('subjectSelect').value = '';
         document.getElementById('chapterSelect').value = '';
-        populateSelect('subject'); populateSelect('chapter');
+        document.getElementById('classSelect').disabled = false;
         closeSetDetail();
+        populateSelect('subject'); populateSelect('chapter');
         updateStepIndicator(); renderSetCards();
     }
 
@@ -1360,13 +1470,24 @@ require_once "../utils/api_config.php";
             const chapterId = parseInt(document.getElementById('chapterSelect').value); if (!chapterId) { alert('Please select a chapter first.'); return; }
             const sts = data.sets[chapterId] || [];
             if (sts.some(s => s.name.toLowerCase() === name.toLowerCase())) { alert('This set already exists.'); return; }
-            const id = nextSetId++; sts.push({ id, name }); data.sets[chapterId] = sts;
-            hideAddInput('set');
-            renderSetCards();
+            apiPost('add-set.php', { chapter_id: chapterId, set_name: name, duration_minutes: 30 }).then(result => {
+                if (result.status) {
+                    hideAddInput('set');
+                    // Reload sets from server to ensure consistency and avoid race conditions
+                    loadSets(chapterId);
+                } else {
+                    alert(result.message || 'Failed to add set.');
+                }
+            }).catch(() => {
+                alert('Network error: Could not add set.');
+            });
         }
     }
 
-    // ===== HELPERS =====        function getClassName(id) { const c = data.classes.find(x => x.id === id); return c ? c.class_name : ''; }        function getSubjectName(classId, subjectId) { const s = (data.subjects[classId] || []).find(x => x.id === subjectId); return s ? s.subject_name : ''; }        function getChapterName(subjectId, chapterId) { const c = (data.chapters[subjectId] || []).find(x => x.id === chapterId); return c ? c.chapter_name : ''; }
+    // ===== HELPERS =====
+    function getClassName(id) { const c = data.classes.find(x => x.id === id); return c ? c.class_name : ''; }
+    function getSubjectName(classId, subjectId) { const s = (data.subjects[classId] || []).find(x => x.id === subjectId); return s ? s.subject_name : ''; }
+    function getChapterName(subjectId, chapterId) { const c = (data.chapters[subjectId] || []).find(x => x.id === chapterId); return c ? c.chapter_name : ''; }
     function getSetName(chapterId, setId) { const s = (data.sets[chapterId] || []).find(x => x.id === setId); return s ? s.name : ''; }
     function formatDate(dateStr) {
         const d = new Date(dateStr + 'T00:00:00');
@@ -1455,8 +1576,13 @@ require_once "../utils/api_config.php";
         classSel.value = classId; classSel.dispatchEvent(new Event('change'));
         subjectSel.value = subjectId; subjectSel.dispatchEvent(new Event('change'));
         chapterSel.value = chapterId; chapterSel.dispatchEvent(new Event('change'));
-        // Open the set detail
-        openSetDetail(setId);
+        // Open the set detail with full context (avoids race condition with cascading selects)
+        openSetDetail(setId, classId, subjectId, chapterId);
+        // Lock category selects so user can only edit the question content
+        categoryLocked = true;
+        document.getElementById('classSelect').disabled = true;
+        document.getElementById('subjectSelect').disabled = true;
+        document.getElementById('chapterSelect').disabled = true;
         // Fill the form
         editingQuestionId = qId;
         document.getElementById('detailQuestionText').value = q.text;
@@ -1497,7 +1623,12 @@ require_once "../utils/api_config.php";
         classSel.value = classId; classSel.dispatchEvent(new Event('change'));
         subjectSel.value = subjectId; subjectSel.dispatchEvent(new Event('change'));
         chapterSel.value = chapterId; chapterSel.dispatchEvent(new Event('change'));
-        openSetDetail(setId);
+        openSetDetail(setId, classId, subjectId, chapterId);
+        // Lock category selects so user can only add questions to this set
+        categoryLocked = true;
+        document.getElementById('classSelect').disabled = true;
+        document.getElementById('subjectSelect').disabled = true;
+        document.getElementById('chapterSelect').disabled = true;
         clearDetailForm();
         // Scroll and focus after render
         setTimeout(() => {
