@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jul 26, 2026 at 03:38 PM
+-- Generation Time: Jul 27, 2026 at 01:35 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -68,7 +68,9 @@ CREATE TABLE `all_mock_tests` (
 --
 
 INSERT INTO `all_mock_tests` (`id`, `set_id`, `question`, `option_a`, `option_b`, `option_c`, `option_d`, `correct_answer`, `explanation`, `created_at`) VALUES
-(1, 1, 'What is Force?', 'Energy', 'Push or Pull', 'Mass', 'Speed', 'B', 'Force is a push or pull.', '2026-07-09 19:01:32');
+(2, 1, 'heloo', 'a', 's', 'a', 's', 'C', '', '2026-07-27 07:46:36'),
+(9, 2, 'sf', 'f', 'f', 'f', 'f', 'B', '', '2026-07-27 08:14:18'),
+(10, 4, 'dad', 'a', 'd', 'tr', 'd', 'C', '', '2026-07-27 08:54:38');
 
 -- --------------------------------------------------------
 
@@ -113,6 +115,26 @@ INSERT INTO `classes` (`id`, `class_name`) VALUES
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `exam_categories`
+--
+
+CREATE TABLE `exam_categories` (
+  `id` int(11) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `description` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `exam_categories`
+--
+
+INSERT INTO `exam_categories` (`id`, `title`, `description`, `created_at`) VALUES
+(1, 'CLass 12', 'heloo', '2026-07-27 10:46:15');
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `mock_tests`
 --
 
@@ -139,7 +161,9 @@ CREATE TABLE `mock_tests` (
 --
 
 INSERT INTO `mock_tests` (`id`, `class_id`, `subject_id`, `test_name`, `description`, `test_date`, `start_time`, `end_time`, `duration_minutes`, `total_questions`, `total_marks`, `is_daily`, `status`, `created_at`, `updated_at`) VALUES
-(1, 1, 3, 'Physics Daily Mock 02', 'Chapter 2 Practice', '2026-07-11', '18:00:00', '18:30:00', 30, 1, 0, 1, 'scheduled', '2026-07-07 16:52:01', '2026-07-07 19:08:54');
+(1, 1, 3, 'Physics Daily Mock 02', 'Chapter 2 Practice', '2026-07-11', '18:00:00', '18:30:00', 30, 1, 0, 1, 'scheduled', '2026-07-07 16:52:01', '2026-07-07 19:08:54'),
+(9, 1, 3, 'Air', 'heloooo', '2026-07-27', '00:00:00', '23:59:00', 20, 1, 0, 1, 'scheduled', '2026-07-27 07:43:51', '2026-07-27 07:44:03'),
+(10, 1, 3, 'okk', 'gfd', '2026-07-30', '00:00:00', '23:59:00', 2000, 0, 0, 1, 'scheduled', '2026-07-27 07:44:17', '2026-07-27 07:44:17');
 
 -- --------------------------------------------------------
 
@@ -165,7 +189,30 @@ CREATE TABLE `mock_test_questions` (
 --
 
 INSERT INTO `mock_test_questions` (`id`, `mock_test_id`, `created_at`, `question`, `option_a`, `option_b`, `option_c`, `option_d`, `correct_answer`, `explanation`) VALUES
-(2, 1, '2026-07-07 19:08:54', 'What is Force ?', 'Energy', 'Push or Pull', 'Mass', 'Speed', 'B', 'Force is a push or pull.');
+(2, 1, '2026-07-07 19:08:54', 'What is Force ?', 'Energy', 'Push or Pull', 'Mass', 'Speed', 'B', 'Force is a push or pull.'),
+(5, 9, '2026-07-27 07:44:03', 'Asas', 'a', 's', 'as', 'd', 'C', '');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `previous_year_questions`
+--
+
+CREATE TABLE `previous_year_questions` (
+  `id` int(11) NOT NULL,
+  `exam_category_id` int(11) NOT NULL,
+  `year` year(4) NOT NULL,
+  `subject_id` int(11) NOT NULL,
+  `pdf_file` varchar(255) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `previous_year_questions`
+--
+
+INSERT INTO `previous_year_questions` (`id`, `exam_category_id`, `year`, `subject_id`, `pdf_file`, `created_at`) VALUES
+(1, 1, '2024', 3, 'pyq_1_2024_3_1785149226.pdf', '2026-07-27 10:47:06');
 
 -- --------------------------------------------------------
 
@@ -188,7 +235,8 @@ CREATE TABLE `sets` (
 INSERT INTO `sets` (`id`, `chapter_id`, `set_name`, `duration_minutes`, `created_at`) VALUES
 (1, 1, 'Set-1', 25, '2026-07-09 18:35:04'),
 (2, 1, 'Set-2', NULL, '2026-07-09 18:47:36'),
-(3, 1, 'Set-2.2', 20, '2026-07-09 18:52:16');
+(3, 1, 'Set-2.2', 20, '2026-07-09 18:52:16'),
+(4, 1, '2.3', 30, '2026-07-27 08:00:41');
 
 -- --------------------------------------------------------
 
@@ -243,9 +291,17 @@ CREATE TABLE `solution_suggestions` (
   `id` int(11) NOT NULL,
   `subject_id` int(11) NOT NULL,
   `title` varchar(255) NOT NULL,
+  `description` text DEFAULT NULL,
   `answer` longtext NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `solution_suggestions`
+--
+
+INSERT INTO `solution_suggestions` (`id`, `subject_id`, `title`, `description`, `answer`, `created_at`) VALUES
+(1, 3, 'ffd', 'dfdfd', 'dfdf', '2026-07-27 10:46:02');
 
 -- --------------------------------------------------------
 
@@ -377,6 +433,12 @@ ALTER TABLE `classes`
   ADD PRIMARY KEY (`id`);
 
 --
+-- Indexes for table `exam_categories`
+--
+ALTER TABLE `exam_categories`
+  ADD PRIMARY KEY (`id`);
+
+--
 -- Indexes for table `mock_tests`
 --
 ALTER TABLE `mock_tests`
@@ -389,6 +451,14 @@ ALTER TABLE `mock_tests`
 --
 ALTER TABLE `mock_test_questions`
   ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `previous_year_questions`
+--
+ALTER TABLE `previous_year_questions`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `fk_pyq_exam_category` (`exam_category_id`),
+  ADD KEY `fk_pyq_subject` (`subject_id`);
 
 --
 -- Indexes for table `sets`
@@ -460,7 +530,7 @@ ALTER TABLE `admins`
 -- AUTO_INCREMENT for table `all_mock_tests`
 --
 ALTER TABLE `all_mock_tests`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT for table `chapters`
@@ -475,22 +545,34 @@ ALTER TABLE `classes`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
+-- AUTO_INCREMENT for table `exam_categories`
+--
+ALTER TABLE `exam_categories`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
 -- AUTO_INCREMENT for table `mock_tests`
 --
 ALTER TABLE `mock_tests`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT for table `mock_test_questions`
 --
 ALTER TABLE `mock_test_questions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+
+--
+-- AUTO_INCREMENT for table `previous_year_questions`
+--
+ALTER TABLE `previous_year_questions`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `sets`
 --
 ALTER TABLE `sets`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `solution_questions`
@@ -508,7 +590,7 @@ ALTER TABLE `solution_question_types`
 -- AUTO_INCREMENT for table `solution_suggestions`
 --
 ALTER TABLE `solution_suggestions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `subjects`
@@ -556,6 +638,13 @@ ALTER TABLE `chapters`
 ALTER TABLE `mock_tests`
   ADD CONSTRAINT `mock_tests_ibfk_1` FOREIGN KEY (`class_id`) REFERENCES `classes` (`id`),
   ADD CONSTRAINT `mock_tests_ibfk_2` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`id`);
+
+--
+-- Constraints for table `previous_year_questions`
+--
+ALTER TABLE `previous_year_questions`
+  ADD CONSTRAINT `fk_pyq_exam_category` FOREIGN KEY (`exam_category_id`) REFERENCES `exam_categories` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_pyq_subject` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `sets`
