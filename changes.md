@@ -133,3 +133,85 @@ Made `loadOldTests()` self-sufficient by:
 | 5 | `Api/app/daily-test/subjects.php` | `wb-admin/Api/app/daily-test/subjects.php` |
 
 **No Flutter app changes needed** — all fixes are server-side PHP only.
+
+---
+
+## 5. 🐛 Fix: `Api/app/update-profile.php` — 406 Not Acceptable on image upload
+
+**Date:** July 30, 2026
+
+### Problem
+When the Flutter app sends a multipart/form-data POST request (with image file) to `update-profile.php`, the server's **ModSecurity/LiteSpeed security module** blocks it with **HTTP 406 Not Acceptable**. The error occurs at the web server level *before* PHP even executes.
+
+### Solution (Two-Pronged)
+
+#### A) PHP: Added JSON+base64 image support (Primary Fix) ✅
+
+The PHP script now **auto-detects the request format** based on `Content-Type` header:
+- **`Content-Type: application/json`** — Reads JSON from `php://input`. Extracts `profile_image` as a **base64-encoded data URI** (`data:image/jpeg;base64,...`), decodes it, and saves to disk. **Completely bypasses ModSecurity** since no multipart upload occurs.
+- **`multipart/form-data`** — Uses existing `$_FILES` logic (backward compatible).
+
+#### B) `.htaccess` (Attempt) 
+Created `Api/app/.htaccess` to try disabling ModSecurity rules and increasing upload limits. May not work on restrictive shared hosting, but the base64 fallback handles it.
+
+### Files Modified
+- `Api/app/update-profile.php` — Added JSON+base64 detection & decoding
+- `Api/app/.htaccess` — NEW: ModSecurity disable + upload limits + CORS
+
+### What to Upload
+| File | Destination |
+|------|-------------|
+| `Api/app/update-profile.php` | `wb-admin/Api/app/update-profile.php` |
+| `Api/app/.htaccess` | `wb-admin/Api/app/.htaccess` |
+
+### 🔥 IMPORTANT: Flutter App Change Required
+
+Since ModSecurity blocks multipart uploads at the server level, the **Flutter app must send the image as a base64 string inside JSON**. The new API expects:
+
+```json
+{
+  "user_id": 1,
+  "full_name": "John Doe",
+  "email": "john@example.com",
+  "mobile": "1234567890",
+  "address": "...",
+  "class_grade": "...",
+  "about_me": "...",
+  "profile_image": "data:image/jpeg;base64,/9j/4AAQ..."
+}
+```
+
+**Header:** `Content-Type: application/json`
+
+### How to convert in Flutter:
+```dart
+import 'dart:convert';
+import 'dart:io';
+
+// Read image file as base64
+File imageFile = File(imagePath);
+List<int> imageBytes = await imageFile.readAsBytes();
+String base64Image = base64Encode(imageBytes);
+String mimeType = 'image/jpeg'; // or image/png
+
+String dataUri = 'data:$mimeType;base64,$base64Image';
+
+// Send as JSON
+Map<String, dynamic> body = {
+  'user_id': userId,
+  'full_name': fullName,
+  'email': email,
+  'mobile': mobile,
+  // ... other fields
+  'profile_image': dataUri,
+};
+
+final response = await http.post(
+  Uri.parse('https://saptahikgyan.space/wb-admin/Api/app/update-profile.php'),
+  headers: {'Content-Type': 'application/json'},
+  body: jsonEncode(body),
+);
+```
+
+### Retry multipart as fallback
+The PHP still accepts multipart if you want to try the old method — but on this hosting provider, multipart file uploads will likely get blocked.

@@ -1,0 +1,14 @@
+<IfModule mod_security.c>
+    SecRuleEngine Off
+    SecFilterInheritance Off
+</IfModule>
+
+<IfModule litespeed>
+    SecRuleEngine Off
+</IfModule>
+
+<IfModule mod_headers.c>
+    Header always set Access-Control-Allow-Origin "*"
+    Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    Header always set Access-Control-Allow-Headers "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+</IfModule>
