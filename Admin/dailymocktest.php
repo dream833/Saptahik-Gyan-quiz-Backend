@@ -933,10 +933,30 @@ require_once "../utils/api_config.php";
             }
         }
 
-        // ===== CLASS CHANGE BINDING =====
+        // ===== CLASS/SELECTION CHANGE - Save to localStorage =====
         document.getElementById('classSelect').addEventListener('change', function() {
             const classId = parseInt(this.value);
+            if (classId) {
+                localStorage.setItem('dailymock_classId', classId);
+            } else {
+                localStorage.removeItem('dailymock_classId');
+                localStorage.removeItem('dailymock_subjectId');
+            }
             loadSubjects(classId);
+        });
+        
+        document.getElementById('subjectSelect').addEventListener('change', function() {
+            const subjectId = parseInt(this.value);
+            if (subjectId) {
+                localStorage.setItem('dailymock_subjectId', subjectId);
+            } else {
+                localStorage.removeItem('dailymock_subjectId');
+            }
+            // Filter tests when subject is selected
+            const classId = parseInt(document.getElementById('classSelect').value) || 0;
+            if (classId && subjectId) {
+                loadAllTests(classId, subjectId);
+            }
         });
 
         // ===== ADD CLASS (via API) =====
@@ -1060,6 +1080,8 @@ require_once "../utils/api_config.php";
             document.getElementById('classSelect').dispatchEvent(new Event('change'));
             setTimeout(() => {
                 document.getElementById('subjectSelect').value = savedSubjectId;
+                // Save subject to localStorage after resetForm clears it
+                localStorage.setItem('dailymock_subjectId', savedSubjectId);
                 loadAllTests(savedClassId, savedSubjectId);
             }, 300);
         }
@@ -1196,20 +1218,13 @@ require_once "../utils/api_config.php";
             if (subjectId === undefined) {
                 subjectId = parseInt(document.getElementById('subjectSelect').value) || 0;
             }
-            // If no class selected, we can't query - just show empty states
-            if (classId <= 0) {
-                document.getElementById('mockTestBody').innerHTML =
-                    `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg></div><h3>Select a class above</h3><p>Choose a class to see today's tests.</p></div></td></tr>`;
-                return;
-            }
             
-            if (subjectId <= 0) {
-                // Can't query without subject
-                return;
-            }
-
             try {
-                const res = await fetch(ADMIN_API + 'get-mocktest-status.php?class_id=' + classId + '&subject_id=' + subjectId);
+                let url = ADMIN_API + 'get-mocktest-status.php';
+                if (classId > 0 && subjectId > 0) {
+                    url += '?class_id=' + classId + '&subject_id=' + subjectId;
+                }
+                const res = await fetch(url);
                 const result = await res.json();
                 if (result.status) {
                     renderTests(result.today || [], 'mockTestBody');
@@ -1227,35 +1242,54 @@ require_once "../utils/api_config.php";
             const date = document.getElementById('oldTestDate').value;
             if (!date) { api.showToast('Please select a date.', 'error'); return; }
             
-            const pastTests = window._pastTests || [];
-            const filtered = pastTests.filter(t => t.test_date === date);
+            const classId = parseInt(document.getElementById('classSelect').value) || 0;
+            const subjectId = parseInt(document.getElementById('subjectSelect').value) || 0;
             const tbody = document.getElementById('oldTestBody');
             
-            if (filtered.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg></div><h3>No tests found</h3><p>No mock tests were found for <strong>${date}</strong>.</p></div></td></tr>`;
-                return;
+            // Fetch fresh data from API directly (don't rely on cached _pastTests)
+            try {
+                let url = ADMIN_API + 'get-mocktest-status.php';
+                if (classId > 0 && subjectId > 0) {
+                    url += '?class_id=' + classId + '&subject_id=' + subjectId;
+                }
+                const res = await fetch(url);
+                const result = await res.json();
+                const allPast = (result.status && result.past) ? result.past : [];
+                
+                // Also update _pastTests cache for consistency
+                window._pastTests = allPast;
+                
+                const filtered = allPast.filter(t => t.test_date === date);
+                
+                if (filtered.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg></div><h3>No tests found</h3><p>No mock tests were found for <strong>${date}</strong>.</p></div></td></tr>`;
+                    return;
+                }
+                
+                let html = '';
+                filtered.forEach((test, idx) => {
+                    html += `
+                        <tr>
+                            <td style="font-weight:600;color:#64748b;">${idx + 1}</td>
+                            <td><span class="class-badge">${test.class_name || ''}</span></td>
+                            <td><span class="subject-badge">${test.subject_name || ''}</span></td>
+                            <td style="font-weight:600;">${test.test_name}</td>
+                            <td>${test.duration_minutes || '—'} min</td>
+                            <td><span class="q-count">${test.total_questions || 0}</span></td>
+                            <td>
+                                <div class="actions-cell">
+                                    <button class="btn btn-info btn-sm" onclick="openAddQuestion(${test.id})">Add Q</button>
+                                    <button class="btn btn-success btn-sm" onclick="viewQuestions(${test.id})">View</button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+                tbody.innerHTML = html;
+            } catch(e) {
+                console.warn('Failed to load old tests:', e);
+                tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg></div><h3>Error loading tests</h3><p>Could not fetch tests. Please try again.</p></div></td></tr>`;
             }
-            
-            let html = '';
-            filtered.forEach((test, idx) => {
-                html += `
-                    <tr>
-                        <td style="font-weight:600;color:#64748b;">${idx + 1}</td>
-                        <td><span class="class-badge">${test.class_name || ''}</span></td>
-                        <td><span class="subject-badge">${test.subject_name || ''}</span></td>
-                        <td style="font-weight:600;">${test.test_name}</td>
-                        <td>${test.duration_minutes || '—'} min</td>
-                        <td><span class="q-count">${test.total_questions || 0}</span></td>
-                        <td>
-                            <div class="actions-cell">
-                                <button class="btn btn-info btn-sm" onclick="openAddQuestion(${test.id})">Add Q</button>
-                                <button class="btn btn-success btn-sm" onclick="viewQuestions(${test.id})">View</button>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            });
-            tbody.innerHTML = html;
         }        // ===== QUESTION MODAL =====
         function openAddQuestion(testId) {
             editingTestId = testId;
@@ -1427,10 +1461,46 @@ require_once "../utils/api_config.php";
         yesterday.setDate(yesterday.getDate() - 1);
         document.getElementById('oldTestDate').value = yesterday.toISOString().split('T')[0];
         
-        loadClasses();
-        loadAllTests();
-        // Load yesterday's old tests after a brief delay (so loadAllTests populates _pastTests first)
-        setTimeout(loadOldTests, 500);
+        // Helper: auto-select dropdown to first real option (skips placeholder)
+        // Load classes, then restore saved selection if available, then load ALL tests
+        loadClasses().then(() => {
+            const savedClassId = parseInt(localStorage.getItem('dailymock_classId'));
+            const savedSubjectId = parseInt(localStorage.getItem('dailymock_subjectId'));
+            
+            // Restore saved class if it exists
+            if (savedClassId) {
+                const classSel = document.getElementById('classSelect');
+                for (let opt of classSel.options) {
+                    if (parseInt(opt.value) === savedClassId) {
+                        classSel.value = savedClassId;
+                        break;
+                    }
+                }
+            }
+            
+            // Load ALL tests initially (no class/subject filter needed)
+            loadAllTests();
+            setTimeout(loadOldTests, 500);
+            
+            // If we have a saved class, also load its subjects (for convenience)
+            const currentClass = parseInt(document.getElementById('classSelect').value) || 0;
+            if (currentClass) {
+                loadSubjects(currentClass).then(() => {
+                    if (savedSubjectId) {
+                        const subSel = document.getElementById('subjectSelect');
+                        for (let opt of subSel.options) {
+                            if (parseInt(opt.value) === savedSubjectId) {
+                                subSel.value = savedSubjectId;
+                                break;
+                            }
+                        }
+                    }
+                });
+            }
+        }).catch(() => {
+            loadAllTests();
+            setTimeout(loadOldTests, 500);
+        });
     </script>
 </body>
 </html>
