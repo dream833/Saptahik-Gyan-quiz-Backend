@@ -29,8 +29,9 @@ try {
         WHERE class_id = ?
         AND subject_id = ?
         AND is_daily = 1
+        AND test_date = CURDATE()
         AND status = 'scheduled'
-        ORDER BY test_date ASC, start_time ASC
+        ORDER BY start_time ASC
     ");
 
     $stmt->execute([$class_id, $subject_id]);

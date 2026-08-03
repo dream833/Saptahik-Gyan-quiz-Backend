@@ -104,4 +104,4 @@ try {
         "message" => $e->getMessage()
     ]);
 
-}z  
+}
