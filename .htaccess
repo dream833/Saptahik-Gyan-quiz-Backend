@@ -1,0 +1,25 @@
+# ============================================
+# Security: block direct access to sensitive files
+# ============================================
+
+# Block the Firebase service account key file (contains a private key!)
+<FilesMatch "^(google_service\.json|google-services\.json|service-account.*\.json|.*service.*\.json)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Block access to dotfiles (.env, .git, etc.)
+<FilesMatch "^\.">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>

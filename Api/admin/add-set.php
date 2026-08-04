@@ -2,6 +2,7 @@
 
 header("Content-Type: application/json");
 require_once "../../utils/db.php";
+require_once "../../utils/notification_helper.php";
 
 $data = json_decode(file_get_contents("php://input"), true);
 
@@ -86,10 +87,20 @@ try {
         $duration_minutes
     ]);
 
+    $newSetId = $pdo->lastInsertId();
+
+    // Auto-notification: new set (all mock test) added
+    create_notification(
+        $pdo,
+        "New Mock Test Set",
+        "A new set \"" . $set_name . "\" has been added. Try it now!",
+        "test"
+    );
+
     echo json_encode([
         "status" => true,
         "message" => "Set Added Successfully",
-        "set_id" => $pdo->lastInsertId()
+        "set_id" => $newSetId
     ]);
 
 } catch (PDOException $e) {

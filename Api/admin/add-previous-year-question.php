@@ -2,6 +2,7 @@
 
 header("Content-Type: application/json");
 require_once "../../utils/db.php";
+require_once "../../utils/notification_helper.php";
 
 // This endpoint uses multipart/form-data for PDF upload
 $exam_category_id = intval($_POST['exam_category_id'] ?? 0);
@@ -142,10 +143,20 @@ try {
         $filename
     ]);
 
+    $newPyqId = $pdo->lastInsertId();
+
+    // Auto-notification: new previous year question added
+    create_notification(
+        $pdo,
+        "New Previous Year Question",
+        "A new previous year question paper for year " . $year . " has been added.",
+        "solution"
+    );
+
     echo json_encode([
         "status" => true,
         "message" => "Previous Year Question Added Successfully",
-        "pyq_id" => $pdo->lastInsertId(),
+        "pyq_id" => $newPyqId,
         "pdf_file" => $filename
     ]);
 

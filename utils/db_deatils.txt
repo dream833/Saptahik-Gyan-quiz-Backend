@@ -1,4 +1,0 @@
-$host = "localhost";
-$dbname = "saptahi1_quiz";
-$username = "saptahi1_quiz";
-$password = "saptahi1_quiz";

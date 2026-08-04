@@ -2,6 +2,7 @@
 
 header("Content-Type: application/json");
 require_once "../../utils/db.php";
+require_once "../../utils/notification_helper.php";
 
 $data = json_decode(file_get_contents("php://input"), true);
 
@@ -119,10 +120,22 @@ try {
         $answer
     ]);
 
+    $newSolutionId = $pdo->lastInsertId();
+
+    // Auto-notification: new solution question added
+    // (plain substr/strlen — no mbstring dependency)
+    $shortQuestion = strlen($question) > 60 ? substr($question, 0, 60) . "..." : $question;
+    create_notification(
+        $pdo,
+        "New Solution Added",
+        "A new question & answer has been added: \"" . $shortQuestion . "\"",
+        "solution"
+    );
+
     echo json_encode([
         "status" => true,
         "message" => "Question Added Successfully",
-        "solution_id" => $pdo->lastInsertId()
+        "solution_id" => $newSolutionId
     ]);
 
 } catch (PDOException $e) {

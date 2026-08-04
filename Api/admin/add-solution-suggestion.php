@@ -2,6 +2,7 @@
 
 header("Content-Type: application/json");
 require_once "../../utils/db.php";
+require_once "../../utils/notification_helper.php";
 
 $data = json_decode(file_get_contents("php://input"), true);
 
@@ -95,10 +96,20 @@ try {
         $answer
     ]);
 
+    $newSuggestionId = $pdo->lastInsertId();
+
+    // Auto-notification: new suggestion added
+    create_notification(
+        $pdo,
+        "New Suggestion",
+        "A new suggestion has been published: \"" . $title . "\"",
+        "solution"
+    );
+
     echo json_encode([
         "status" => true,
         "message" => "Suggestion Added Successfully",
-        "suggestion_id" => $pdo->lastInsertId()
+        "suggestion_id" => $newSuggestionId
     ]);
 
 } catch (PDOException $e) {

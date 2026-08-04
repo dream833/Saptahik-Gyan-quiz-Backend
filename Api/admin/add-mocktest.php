@@ -2,6 +2,7 @@
 
 header("Content-Type: application/json");
 require_once "../../utils/db.php";
+require_once "../../utils/notification_helper.php";
 
 $data = json_decode(file_get_contents("php://input"), true);
 
@@ -94,10 +95,20 @@ try {
         $duration
     ]);
 
+    $newMockTestId = $pdo->lastInsertId();
+
+    // Auto-notification: new test added
+    create_notification(
+        $pdo,
+        "New Test Added",
+        "A new daily mock test \"" . $test_name . "\" has been scheduled on " . date("d M Y", strtotime($test_date)) . ".",
+        "test"
+    );
+
     echo json_encode([
         "status" => true,
         "message" => "Mock Test Added Successfully",
-        "mock_test_id" => $pdo->lastInsertId()
+        "mock_test_id" => $newMockTestId
     ]);
 
 } catch (PDOException $e) {

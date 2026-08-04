@@ -401,6 +401,44 @@ CREATE TABLE `user_mock_results` (
 INSERT INTO `user_mock_results` (`id`, `user_id`, `test_id`, `total_questions`, `attempted_questions`, `correct_answers`, `wrong_answers`, `score`, `percentage`, `time_taken`, `submitted_at`) VALUES
 (2, 1, 5, 0, 0, 0, 0, 0, 0.00, 0, '2026-06-24 15:48:17');
 
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `notifications`
+--
+
+CREATE TABLE `notifications` (
+  `id` int(11) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `message` text DEFAULT NULL,
+  `type` enum('test','solution','custom') DEFAULT 'custom',
+  `is_active` tinyint(1) DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `device_tokens`
+--
+
+CREATE TABLE `device_tokens` (
+  `id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL DEFAULT 0,
+  `token` varchar(255) NOT NULL,
+  `platform` enum('android','ios','web') DEFAULT 'android',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Indexes for table `device_tokens`
+--
+ALTER TABLE `device_tokens`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `token` (`token`),
+  ADD KEY `user_id` (`user_id`);
+
 --
 -- Indexes for dumped tables
 --
@@ -615,6 +653,18 @@ ALTER TABLE `user_answers`
 --
 ALTER TABLE `user_mock_results`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
+--
+-- AUTO_INCREMENT for table `notifications`
+--
+ALTER TABLE `notifications`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `device_tokens`
+--
+ALTER TABLE `device_tokens`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- Constraints for dumped tables

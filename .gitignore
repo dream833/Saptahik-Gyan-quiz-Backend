@@ -1,0 +1,50 @@
+# ============================================
+#  SECURITY - NEVER commit these
+# ============================================
+
+# ---- Firebase / FCM credentials ----
+google_service.json
+google-services.json
+GoogleService-Info.plist
+*firebase-adminsdk*.json
+service-account*.json
+*.service-account.json
+.wfcm_token_cache
+utils/.fcm_token_cache
+
+# ---- Database credentials ----
+utils/db_deatils.txt
+db_deatils.txt
+*.db_credentials*
+
+# ---- Environment / secrets ----
+.env
+.env.*
+!.env.example
+*.env.local
+config.local.php
+secrets.php
+
+# ============================================
+#  Logs & temp files
+# ============================================
+*.log
+npm-debug.log*
+error_log
+tmp/
+temp/
+
+# ============================================
+#  OS files
+# ============================================
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# ============================================
+#  IDE / editor
+# ============================================
+.vscode/
+.idea/
+*.suo
+*.swp
